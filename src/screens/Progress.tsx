@@ -3,7 +3,7 @@ import { EX } from '../data/exercises';
 import type { Muscle } from '../data/types';
 import { MUSCLES, useT } from '../i18n';
 import { e1rm, weeklySetsPerMuscle } from '../lib/plan';
-import { sessionSets, sessionVolume } from '../lib/workout';
+import { fmtPace, pace, sessionSets, sessionVolume } from '../lib/workout';
 import { setState, useStore } from '../store';
 import { Bars, LineChart } from '../ui';
 
@@ -46,15 +46,32 @@ export default function Progress() {
   };
 
   const total = history.reduce((v, h) => v + sessionVolume(h), 0);
+  const swims = history.flatMap((h) => (h.swims ?? []).map((e) => ({ date: h.start, e })));
+  const swimAll = swims.reduce((d, x) => d + x.e.distance, 0);
+  const swimWeek = swims.filter((x) => x.date > Date.now() - 7 * 864e5).reduce((d, x) => d + x.e.distance, 0);
 
   return (
     <div>
       <h1>{t('progressTitle')}</h1>
       <div className="stats" style={{ marginTop: 12 }}>
-        <div className="stat"><b>{history.length}</b><span>{t('totalWorkouts')}</span></div>
+        <div className="stat"><b>{history.filter((h) => h.exercises.length).length}</b><span>{t('totalWorkouts')}</span></div>
         <div className="stat"><b>{history.reduce((n, h) => n + sessionSets(h), 0)}</b><span>{t('totalSets')}</span></div>
         <div className="stat"><b>{(total / 1000).toFixed(1)}</b><span>{t('totalVolume')}</span></div>
       </div>
+
+      {swims.length > 0 && (
+        <>
+          <h2>🏊 {t('swim')}</h2>
+          <div className="card">
+            <div className="stats" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className="stat"><b>{(swimWeek / 1000).toFixed(1)}</b><span>{t('swimThisWeek')} ({t('km')})</span></div>
+              <div className="stat"><b>{(swimAll / 1000).toFixed(1)}</b><span>{t('swimTotal')} ({t('km')})</span></div>
+            </div>
+            <div className="muted small" style={{ marginTop: 10 }}>{t('swimPace')}</div>
+            <LineChart points={swims.map((x) => ({ x: x.date, y: pace(x.e) }))} fmtY={fmtPace} />
+          </div>
+        </>
+      )}
 
       <h2>{t('e1rm')}</h2>
       <div className="card">

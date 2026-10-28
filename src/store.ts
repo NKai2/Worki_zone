@@ -33,6 +33,9 @@ export interface Plan {
 export interface LoggedSet { w: number; r: number; done: boolean }
 export interface LoggedExercise { exId: string; sets: LoggedSet[]; reps: [number, number]; rest: number }
 
+export type Stroke = 'freestyle' | 'breast' | 'back' | 'fly' | 'mixed';
+export interface SwimEntry { distance: number; duration: number; stroke: Stroke; pool: 25 | 50 | 0 }
+
 export interface ActiveWorkout {
   id: string;
   start: number;
@@ -40,6 +43,7 @@ export interface ActiveWorkout {
   dayIndex: number;
   dayKey: string;
   exercises: LoggedExercise[];
+  swims?: SwimEntry[];
 }
 
 export interface Session {
@@ -49,6 +53,7 @@ export interface Session {
   week: number;
   dayKey: string;
   exercises: { exId: string; sets: { w: number; r: number }[] }[];
+  swims?: SwimEntry[];
   stravaId?: number;
 }
 
@@ -61,6 +66,7 @@ export interface Settings {
   stravaSecret: string;
   strava?: StravaAuth;
   autoStrava: boolean;
+  anthropicKey: string;
 }
 
 export interface State {
@@ -84,7 +90,7 @@ const initial: State = {
   active: null,
   history: [],
   bodyweight: [],
-  settings: { lang: 'he', restSound: true, stravaClientId: '', stravaSecret: '', autoStrava: false },
+  settings: { lang: 'he', restSound: true, stravaClientId: '', stravaSecret: '', autoStrava: false, anthropicKey: '' },
 };
 
 function load(): State {

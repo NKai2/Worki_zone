@@ -30,7 +30,7 @@ export default function SettingsScreen({ toast }: { toast: (msg: string) => void
   const exportJson = () => {
     const { settings: st, ...rest } = getState();
     // Keep the Strava secret and tokens out of backups
-    const safe = { ...rest, settings: { ...st, stravaSecret: '', strava: undefined } };
+    const safe = { ...rest, settings: { ...st, stravaSecret: '', strava: undefined, anthropicKey: '' } };
     download(`worki-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(safe, null, 2), 'application/json');
   };
 
@@ -39,7 +39,7 @@ export default function SettingsScreen({ toast }: { toast: (msg: string) => void
       const data = JSON.parse(await f.text()) as State;
       if (!Array.isArray(data.history)) throw new Error('bad file');
       const keep = getState().settings;
-      replaceState({ ...data, settings: { ...data.settings, stravaSecret: keep.stravaSecret, strava: keep.strava } });
+      replaceState({ ...data, settings: { ...data.settings, stravaSecret: keep.stravaSecret, strava: keep.strava, anthropicKey: keep.anthropicKey } });
       toast(t('imported'));
     } catch (e) {
       toast((e as Error).message);
@@ -74,6 +74,14 @@ export default function SettingsScreen({ toast }: { toast: (msg: string) => void
             <div className="stat"><b>{Math.round((kg * 33 + 250) / 50) * 50}</b><span>{t('calories')} ≈</span></div>
           </div>
         ) : <div className="small" style={{ marginTop: 8 }}>{t('enterBw')}</div>}
+      </div>
+
+      <h2>{t('aiCoachSettings')}</h2>
+      <div className="card">
+        <p className="muted small" style={{ marginTop: 0 }}>{t('coachNeedsKey')}</p>
+        <label className="field"><span>{t('apiKey')}</span>
+          <input className="input" dir="ltr" type="password" placeholder="sk-ant-…" value={settings.anthropicKey} onChange={(e) => updateSettings({ anthropicKey: e.target.value })} />
+        </label>
       </div>
 
       <h2>{t('integrations')}</h2>

@@ -65,24 +65,27 @@ function localIso(ms: number) {
 }
 
 export function describe(s: Session) {
-  return s.exercises
-    .map((e) => `${EX[e.exId]?.name.en ?? e.exId}: ${e.sets.map((x) => (x.w ? `${x.w}kg×${x.r}` : `${x.r}`)).join(', ')}`)
-    .join('\n') + '\n\nLogged with Worki Zone';
+  const lines = s.exercises.map((e) => `${EX[e.exId]?.name.en ?? e.exId}: ${e.sets.map((x) => (x.w ? `${x.w}kg×${x.r}` : `${x.r}`)).join(', ')}`);
+  for (const w of s.swims ?? []) lines.push(`Swim: ${w.distance} m ${w.stroke} in ${Math.round(w.duration / 60)} min`);
+  return lines.join('\n') + '\n\nLogged with Worki Zone';
 }
 
 export async function uploadToStrava(s: Session, name: string): Promise<number> {
   const token = await accessToken();
+  const swimOnly = s.exercises.length === 0 && !!s.swims?.length;
+  const distance = (s.swims ?? []).reduce((d, x) => d + x.distance, 0);
   const res = await fetch(`${API}/activities`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       name,
-      sport_type: 'WeightTraining',
-      type: 'WeightTraining',
+      sport_type: swimOnly ? 'Swim' : 'WeightTraining',
+      type: swimOnly ? 'Swim' : 'WeightTraining',
+      ...(swimOnly ? { distance: String(distance) } : {}),
       start_date_local: localIso(s.start),
       elapsed_time: String(Math.max(60, Math.round((s.end - s.start) / 1000))),
       description: describe(s),
-      trainer: '1',
+      ...(swimOnly ? {} : { trainer: '1' }),
     }),
   });
   if (!res.ok) throw new Error(`Strava upload failed (${res.status})`);

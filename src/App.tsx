@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Icon } from './Icons';
 import { useT, type Key } from './i18n';
 import { handleStravaRedirect } from './integrations/strava';
@@ -13,10 +13,12 @@ import { updateSettings, useStore } from './store';
 import SessionSummary from './screens/SessionSummary';
 import { Sheet, Toast } from './ui';
 
-type Tab = 'today' | 'plan' | 'library' | 'progress' | 'settings';
+type Tab = 'today' | 'plan' | 'coach' | 'library' | 'progress' | 'settings';
+const Coach = lazy(() => import('./screens/Coach'));
 const TABS: { id: Tab; label: Key; icon: () => React.ReactElement }[] = [
   { id: 'today', label: 'navToday', icon: Icon.today },
   { id: 'plan', label: 'navPlan', icon: Icon.plan },
+  { id: 'coach', label: 'navCoach', icon: Icon.coach },
   { id: 'library', label: 'navLibrary', icon: Icon.library },
   { id: 'progress', label: 'navProgress', icon: Icon.progress },
   { id: 'settings', label: 'navSettings', icon: Icon.settings },
@@ -71,6 +73,7 @@ export default function App() {
         <main>
           {tab === 'today' && <Today go={go} />}
           {tab === 'plan' && <PlanScreen onRebuild={() => setEditing(true)} />}
+          {tab === 'coach' && <Suspense fallback={null}><Coach /></Suspense>}
           {tab === 'library' && <Library />}
           {tab === 'progress' && <Progress />}
           {tab === 'settings' && <SettingsScreen toast={setToast} />}

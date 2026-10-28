@@ -31,6 +31,21 @@ export function sessionToFit(s: Session): Uint8Array {
   write(Profile.MesgNum.FILE_ID, { type: 'activity', manufacturer: 'development', product: 1, timeCreated: start, serialNumber: 1234 });
   write(Profile.MesgNum.EVENT, { timestamp: start, event: 'timer', eventType: 'start' });
 
+  const swimOnly = s.exercises.length === 0 && !!s.swims?.length;
+  if (swimOnly) {
+    const sw = s.swims!;
+    const dist = sw.reduce((d, x) => d + x.distance, 0);
+    const pool = sw[0].pool;
+    const sport = { sport: 'swimming', subSport: pool ? 'lapSwimming' : 'openWater' };
+    write(Profile.MesgNum.EVENT, { timestamp: end, event: 'timer', eventType: 'stop' });
+    const c = { timestamp: end, startTime: start, totalElapsedTime: elapsed, totalTimerTime: elapsed, totalDistance: dist, ...sport };
+    write(Profile.MesgNum.LAP, { ...c, messageIndex: 0, event: 'lap', eventType: 'stop' });
+    write(Profile.MesgNum.SESSION, { ...c, messageIndex: 0, firstLapIndex: 0, numLaps: 1, event: 'session', eventType: 'stop',
+      ...(pool ? { poolLength: pool, poolLengthUnit: 'metric' } : {}) });
+    write(Profile.MesgNum.ACTIVITY, { timestamp: end, totalTimerTime: elapsed, numSessions: 1, type: 'manual', event: 'activity', eventType: 'stop' });
+    return enc.close();
+  }
+
   const all = s.exercises.flatMap((e) => e.sets.map((set) => ({ exId: e.exId, ...set })));
   const slice = elapsed / Math.max(1, all.length);
   all.forEach((set, i) => {

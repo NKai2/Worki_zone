@@ -3,9 +3,10 @@ import Figure from './anim/Figure';
 import { EX } from './data/exercises';
 import type { Muscle } from './data/types';
 import { Icon } from './Icons';
-import { MUSCLES, useT } from './i18n';
+import { MUSCLES, useT, type Key } from './i18n';
 import { e1rm } from './lib/plan';
-import { useStore } from './store';
+import { useStore, type Stroke, type SwimEntry } from './store';
+import { fmtPace, pace } from './lib/workout';
 
 export function Toast({ text, onDone }: { text: string; onDone: () => void }) {
   useEffect(() => {
@@ -101,7 +102,7 @@ export function ExerciseDetail({ exId }: { exId: string }) {
   );
 }
 
-export function LineChart({ points, unit = '' }: { points: { x: number; y: number }[]; unit?: string }) {
+export function LineChart({ points, unit = '', fmtY = (y: number) => String(Math.round(y)) }: { points: { x: number; y: number }[]; unit?: string; fmtY?: (y: number) => string }) {
   const { t, lang } = useT();
   if (points.length < 2) return <div className="muted small" style={{ padding: '18px 0' }}>{t('noData')}</div>;
   const W = 320, H = 150, pad = 26;
@@ -118,7 +119,7 @@ export function LineChart({ points, unit = '' }: { points: { x: number; y: numbe
       {[y0, (y0 + y1) / 2, y1].map((y) => (
         <g key={y}>
           <line x1={pad} x2={W - 8} y1={sy(y)} y2={sy(y)} className="grid" />
-          <text x={2} y={sy(y) + 3}>{Math.round(y)}</text>
+          <text x={2} y={sy(y) + 3}>{fmtY(y)}</text>
         </g>
       ))}
       <path d={d} className="lineplot" />
@@ -143,6 +144,61 @@ export function Bars({ data, max, target }: { data: [string, number][]; max?: nu
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Compact − value + control for fast logging with one thumb. */
+export function Stepper({ value, step, onChange, placeholder, decimal }: { value: number; step: number; onChange: (v: number) => void; placeholder?: string; decimal?: boolean }) {
+  const set = (v: number) => onChange(Math.max(0, Math.round(v * 100) / 100));
+  return (
+    <div className="stepper" dir="ltr">
+      <button type="button" onClick={() => set(value - step)} aria-label="−">−</button>
+      <input inputMode={decimal ? 'decimal' : 'numeric'} value={value || ''} placeholder={placeholder ?? '0'}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => set(parseFloat(e.target.value.replace(',', '.')) || 0)} />
+      <button type="button" onClick={() => set(value + step)} aria-label="+">+</button>
+    </div>
+  );
+}
+
+export function SwimForm({ onSave, initial }: { onSave: (e: SwimEntry) => void; initial?: SwimEntry }) {
+  const { t } = useT();
+  const [e, setE] = useState<SwimEntry>(initial ?? { distance: 1000, duration: 25 * 60, stroke: 'freestyle', pool: 25 });
+  const strokes: Stroke[] = ['freestyle', 'breast', 'back', 'fly', 'mixed'];
+  const minutes = Math.round((e.duration / 60) * 10) / 10;
+  return (
+    <div>
+      <h2 style={{ marginTop: 0 }}>🏊 {t('swim')}</h2>
+      <label className="field"><span>{t('distance')}</span>
+        <Stepper value={e.distance} step={50} onChange={(distance) => setE({ ...e, distance })} />
+      </label>
+      <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+        {[500, 1000, 1500, 2000, 3000].map((d) => (
+          <button key={d} className={`btn sm ${e.distance === d ? 'primary' : 'ghost'}`} onClick={() => setE({ ...e, distance: d })}>{d}</button>
+        ))}
+      </div>
+      <label className="field"><span>{t('swimTime')}</span>
+        <Stepper value={minutes} step={1} decimal onChange={(m) => setE({ ...e, duration: Math.round(m * 60) })} />
+      </label>
+      <div className="field"><span>{t('stroke')}</span>
+        <div className="row wrap" style={{ gap: 6 }}>
+          {strokes.map((s) => (
+            <button key={s} className={`btn sm ${e.stroke === s ? 'primary' : 'ghost'}`} onClick={() => setE({ ...e, stroke: s })}>{t(`st_${s}` as Key)}</button>
+          ))}
+        </div>
+      </div>
+      <div className="field"><span>{t('pool')}</span>
+        <div className="row wrap" style={{ gap: 6 }}>
+          {([25, 50, 0] as const).map((p) => (
+            <button key={p} className={`btn sm ${e.pool === p ? 'primary' : 'ghost'}`} onClick={() => setE({ ...e, pool: p })}>{p ? `${p} m` : t('openWater')}</button>
+          ))}
+        </div>
+      </div>
+      <div className="muted small" style={{ marginTop: 12 }}>
+        {t('pace100')}: <b dir="ltr">{e.distance && e.duration ? fmtPace(pace(e)) : '—'}</b>
+      </div>
+      <button className="btn primary block" style={{ marginTop: 14 }} disabled={!e.distance || !e.duration} onClick={() => onSave(e)}>{t('save')}</button>
     </div>
   );
 }

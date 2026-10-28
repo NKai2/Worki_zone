@@ -4,10 +4,10 @@ import { EX } from '../data/exercises';
 import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
 import { uploadToStrava } from '../integrations/strava';
-import { e1rm, lastPerformance, suggest, weekInfo } from '../lib/plan';
-import { discardWorkout, finishWorkout, updateActive, updateSession } from '../lib/workout';
+import { e1rm, increment, lastPerformance, suggest, weekInfo } from '../lib/plan';
+import { discardWorkout, finishWorkout, fmtPace, pace, updateActive, updateSession } from '../lib/workout';
 import { getState, useStore, type LoggedSet } from '../store';
-import { ExerciseDetail, Sheet } from '../ui';
+import { ExerciseDetail, Sheet, Stepper, SwimForm } from '../ui';
 
 function beep() {
   try {
@@ -76,6 +76,7 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
   const history = useStore((s) => s.history);
   const [rest, setRest] = useState<{ until: number; total: number } | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
+  const [swimOpen, setSwimOpen] = useState(false);
   const { deload, rir } = weekInfo(plan, w.week);
 
   const setField = (ei: number, si: number, patch: Partial<LoggedSet>) =>
@@ -167,7 +168,6 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
               <thead>
                 <tr>
                   <th>{t('set')}</th>
-                  <th>{t('previous')}</th>
                   <th>{bwEx ? `+${t('kg')}` : t('kg')}</th>
                   <th>{e.exId === 'plank' ? t('sec') : t('reps')}</th>
                   <th />
@@ -178,15 +178,16 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
                   const p = last?.sets[si];
                   return (
                     <tr key={si} className={set.done ? 'done' : ''}>
-                      <td>{si + 1}</td>
-                      <td className="prev" dir="ltr">{p ? (p.w ? `${p.w}×${p.r}` : `${p.r}`) : '—'}</td>
                       <td>
-                        <input inputMode="decimal" value={set.w || ''} placeholder={bwEx ? t('bw') : '0'}
-                          onChange={(ev) => setField(ei, si, { w: parseFloat(ev.target.value.replace(',', '.')) || 0 })} />
+                        <b>{si + 1}</b>
+                        <div className="prev" dir="ltr">{p ? (p.w ? `${p.w}×${p.r}` : `${p.r}`) : ''}</div>
                       </td>
                       <td>
-                        <input inputMode="numeric" value={set.r || ''} placeholder="0"
-                          onChange={(ev) => setField(ei, si, { r: parseInt(ev.target.value, 10) || 0 })} />
+                        <Stepper value={set.w} step={increment(ex) || 1} decimal placeholder={bwEx ? t('bw') : '0'}
+                          onChange={(w) => setField(ei, si, { w })} />
+                      </td>
+                      <td>
+                        <Stepper value={set.r} step={e.exId === 'plank' ? 5 : 1} onChange={(r) => setField(ei, si, { r: Math.round(r) })} />
                       </td>
                       <td>
                         <button className={`check ${set.done ? 'on' : ''}`} onClick={() => toggleDone(ei, si)} aria-label="done"><Icon.check /></button>
@@ -204,12 +205,30 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
         );
       })}
 
-      <button className="btn primary block" style={{ marginTop: 18 }} disabled={doneSets === 0} onClick={finish}>
+      {(w.swims ?? []).map((sw, i) => (
+        <div key={i} className="swim-row">
+          <span style={{ fontSize: 22 }}>🏊</span>
+          <div className="grow">
+            <b dir="ltr">{sw.distance} m · {Math.round(sw.duration / 60)} min</b>
+            <div className="muted small">{t(`st_${sw.stroke}` as Key)} · {t('pace100')} <span dir="ltr">{fmtPace(pace(sw))}</span></div>
+          </div>
+          <button className="icon-btn" aria-label={t('remove')}
+            onClick={() => updateActive((a) => ({ ...a, swims: (a.swims ?? []).filter((_, j) => j !== i) }))}><Icon.trash /></button>
+        </div>
+      ))}
+      <button className="btn ghost block" style={{ marginTop: 12 }} onClick={() => setSwimOpen(true)}>{t('addSwim')}</button>
+
+      <button className="btn primary block" style={{ marginTop: 12 }} disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>
         {t('finish')} ({doneSets})
       </button>
 
       {rest && <RestBar until={rest.until} total={rest.total} onChange={(until) => setRest({ ...rest, until })} onDone={() => setRest(null)} />}
       {detail && <Sheet onClose={() => setDetail(null)}><ExerciseDetail exId={detail} /></Sheet>}
+      {swimOpen && (
+        <Sheet onClose={() => setSwimOpen(false)}>
+          <SwimForm onSave={(sw) => { updateActive((a) => ({ ...a, swims: [...(a.swims ?? []), sw] })); setSwimOpen(false); }} />
+        </Sheet>
+      )}
     </div>
   );
 }
