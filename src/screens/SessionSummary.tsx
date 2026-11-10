@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { EX } from '../data/exercises';
+import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
 import { uploadToStrava } from '../integrations/strava';
 import { increment } from '../lib/plan';
 import { fmtPace, pace, sessionSets, sessionVolume, swimDistance, updateSession } from '../lib/workout';
-import { Stepper } from '../ui';
 import { setState, useStore, type Session } from '../store';
-import { Icon } from '../Icons';
+import { Cell, Group, Stepper } from '../ui';
 
 export function fmtDuration(ms: number) {
   const m = Math.round(ms / 60000);
   return m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}` : `${m}′`;
 }
 
-export default function SessionSummary({ sessionId, onClose, prs = [] }: { sessionId: string; onClose?: () => void; prs?: string[] }) {
+export default function SessionSummary({ sessionId, onClose, prs = [], celebrate }: { sessionId: string; onClose?: () => void; prs?: string[]; celebrate?: boolean }) {
   const { t, tx, lang } = useT();
   const session = useStore((s) => s.history.find((h) => h.id === sessionId));
   const stravaOn = useStore((s) => !!s.settings.strava);
@@ -23,6 +23,9 @@ export default function SessionSummary({ sessionId, onClose, prs = [] }: { sessi
   const [draft, setDraft] = useState<Session['exercises']>([]);
   if (!session) return null;
 
+  const isSwim = session.exercises.length === 0;
+  const title = isSwim ? t('day_swim') : t(`day_${session.dayKey}` as Key);
+
   const editSet = (ei: number, si: number, patch: Partial<{ w: number; r: number }>) =>
     setDraft(draft.map((d, i) => (i === ei ? { ...d, sets: d.sets.map((x, j) => (j === si ? { ...x, ...patch } : x)) } : d)));
   const saveEdit = () => {
@@ -30,13 +33,10 @@ export default function SessionSummary({ sessionId, onClose, prs = [] }: { sessi
     setEditing(false);
   };
 
-  const title = session.dayKey === 'swim' ? `🏊 ${t('day_swim')}` : `${t(`day_${session.dayKey}` as Key)} · ${t('week')} ${session.week}`;
-  const dist = swimDistance(session);
-
   const send = async (s: Session) => {
     setBusy(true); setErr('');
     try {
-      const id = await uploadToStrava(s, `Worki Zone · ${t(`day_${s.dayKey}` as Key)}`);
+      const id = await uploadToStrava(s, `Worki Zone · ${title}`);
       updateSession(s.id, { stravaId: id });
     } catch (e) {
       setErr((e as Error).message);
@@ -46,95 +46,94 @@ export default function SessionSummary({ sessionId, onClose, prs = [] }: { sessi
   };
 
   const remove = () => {
-    if (!confirm(t('delete') + '?')) return;
+    if (!confirm(`${t('delete')}?`)) return;
     setState((s) => ({ history: s.history.filter((h) => h.id !== session.id) }));
     onClose?.();
   };
 
   return (
     <div>
-      <div className="muted small">{new Date(session.start).toLocaleString(lang === 'he' ? 'he-IL' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</div>
-      <h1>{title}</h1>
-      <div className="stats" style={{ marginTop: 12 }}>
-        <div className="stat"><b>{fmtDuration(session.end - session.start)}</b><span>{t('duration')}</span></div>
-        {session.exercises.length > 0 ? (
+      {celebrate && (
+        <div className="center" style={{ marginBottom: 6 }}>
+          <div className="ob-hero" style={{ width: 76, height: 76, borderRadius: 22, background: 'linear-gradient(145deg,#30d158,#00c7be)' }}><Icon.check /></div>
+        </div>
+      )}
+      <div className="center">
+        <div className="footnote secondary">{new Date(session.start).toLocaleString(lang === 'he' ? 'he-IL' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</div>
+        <div className="title3 mt8" style={{ fontSize: 26, fontWeight: 700 }}>{title}</div>
+        {!isSwim && <div className="subhead secondary">{t('week')} {session.week}</div>}
+      </div>
+
+      <div className="tiles mt16">
+        <div className="tile"><div className="k">{t('duration')}</div><div className="v">{fmtDuration(session.end - session.start)}</div></div>
+        {isSwim ? (
           <>
-            <div className="stat"><b>{sessionSets(session)}</b><span>{t('totalSets')}</span></div>
-            <div className="stat"><b>{Math.round(sessionVolume(session)).toLocaleString()}</b><span>{t('volume')}</span></div>
+            <div className="tile"><div className="k">{t('distanceShort')}</div><div className="v">{swimDistance(session)}<small> m</small></div></div>
+            <div className="tile"><div className="k">{t('pace100')}</div><div className="v" dir="ltr">{fmtPace(pace(session.swims![0]))}</div></div>
           </>
         ) : (
           <>
-            <div className="stat"><b>{dist}</b><span>{t('distance')}</span></div>
-            <div className="stat"><b dir="ltr">{fmtPace(pace(session.swims![0]))}</b><span>{t('pace100')}</span></div>
+            <div className="tile"><div className="k">{t('totalSets')}</div><div className="v">{sessionSets(session)}</div></div>
+            <div className="tile"><div className="k">{t('volume')}</div><div className="v">{Math.round(sessionVolume(session)).toLocaleString()}</div></div>
           </>
         )}
       </div>
 
       {prs.length > 0 && (
-        <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
-          <h3>🏆 {t('prs')}</h3>
-          <div className="small">{prs.map((id) => tx(EX[id].name)).join(' · ')}</div>
-        </div>
+        <Group header={t('prs')}>
+          {prs.map((id) => <Cell key={id} icon={<Icon.trophy />} iconBg="#ff9f0a" title={tx(EX[id].name)} />)}
+        </Group>
       )}
 
-      {editing ? (
-        <div style={{ marginTop: 12 }}>
+      {!isSwim && (editing ? (
+        <>
           {draft.map((e, ei) => (
-            <div key={ei} style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-              <b className="small">{tx(EX[e.exId].name)}</b>
+            <Group key={ei} header={tx(EX[e.exId].name)}>
               {e.sets.map((x, si) => (
-                <div key={si} className="row" style={{ gap: 6, marginTop: 6 }}>
-                  <span className="muted small" style={{ width: 18 }}>{si + 1}</span>
-                  <div className="grow"><Stepper value={x.w} step={increment(EX[e.exId]) || 1} decimal onChange={(w) => editSet(ei, si, { w })} /></div>
-                  <div className="grow"><Stepper value={x.r} step={1} onChange={(r) => editSet(ei, si, { r: Math.round(r) })} /></div>
+                <div key={si} className="cell" style={{ gap: 8 }}>
+                  <span className="set-num">{si + 1}</span>
+                  <div className="grow"><Stepper value={x.w} step={increment(EX[e.exId]) || 1} decimal label={t('kg')} onChange={(w) => editSet(ei, si, { w })} /></div>
+                  <div className="grow"><Stepper value={x.r} step={1} label={t('reps')} onChange={(r) => editSet(ei, si, { r: Math.round(r) })} /></div>
                   <button className="icon-btn" aria-label={t('remove')} onClick={() => setDraft(draft.map((d, i) => (i === ei ? { ...d, sets: d.sets.filter((_, j) => j !== si) } : d)))}><Icon.trash /></button>
                 </div>
               ))}
-            </div>
+            </Group>
           ))}
-          <div className="row" style={{ marginTop: 12 }}>
-            <button className="btn ghost" onClick={() => setEditing(false)}>{t('cancel')}</button>
-            <button className="btn primary grow" onClick={saveEdit}>{t('save')}</button>
+          <div className="row mt16">
+            <button className="btn gray grow" onClick={() => setEditing(false)}>{t('cancel')}</button>
+            <button className="btn filled grow" onClick={saveEdit}>{t('save')}</button>
           </div>
-        </div>
+        </>
       ) : (
-        <div style={{ marginTop: 12 }}>
+        <Group header={<div className="row between"><span>{t('exercisesTitle')}</span><button className="tint" style={{ textTransform: 'none', fontSize: 15 }} onClick={() => { setDraft(session.exercises); setEditing(true); }}>{t('edit')}</button></div>}>
           {session.exercises.map((e) => (
-            <div key={e.exId} className="row between small" style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-              <span>{tx(EX[e.exId].name)}</span>
-              <span className="muted" dir="ltr">{e.sets.map((s) => (s.w ? `${s.w}×${s.r}` : `${s.r}`)).join('  ')}</span>
-            </div>
+            <Cell key={e.exId} title={tx(EX[e.exId].name)} sub={<span className="num" dir="ltr">{e.sets.map((s) => (s.w ? `${s.w}×${s.r}` : `${s.r}`)).join('   ')}</span>} />
           ))}
-          {(session.swims ?? []).map((sw, i) => (
-            <div key={i} className="swim-row">
-              <span style={{ fontSize: 22 }}>🏊</span>
-              <div className="grow">
-                <b dir="ltr">{sw.distance} m · {Math.round(sw.duration / 60)} min</b>
-                <div className="muted small">{t(`st_${sw.stroke}` as Key)} · {sw.pool ? `${sw.pool} m` : t('openWater')} · {t('pace100')} <span dir="ltr">{fmtPace(pace(sw))}</span></div>
-              </div>
-            </div>
+        </Group>
+      ))}
+
+      {(session.swims ?? []).length > 0 && (
+        <Group header={t('swim')}>
+          {session.swims!.map((sw, i) => (
+            <Cell key={i} icon={<Icon.swim />} iconBg="var(--cyan)"
+              title={<span dir="ltr" className="num">{sw.distance} m · {Math.round(sw.duration / 60)} min</span>}
+              sub={<>{t(`st_${sw.stroke}` as Key)} · {sw.pool ? `${sw.pool} m` : t('openWater')} · <span dir="ltr">{fmtPace(pace(sw))}</span>/100m</>} />
           ))}
-          {session.exercises.length > 0 && (
-            <button className="btn sm ghost" style={{ marginTop: 10 }} onClick={() => { setDraft(session.exercises); setEditing(true); }}>✎ {t('edit')}</button>
-          )}
-        </div>
+        </Group>
       )}
 
-      <div className="stack" style={{ marginTop: 16 }}>
-        {stravaOn && (
-          session.stravaId ? (
-            <a className="btn strava block" style={{ textDecoration: 'none' }} href={`https://www.strava.com/activities/${session.stravaId}`} target="_blank" rel="noreferrer">{t('sentStrava')}</a>
-          ) : (
-            <button className="btn strava block" disabled={busy} onClick={() => send(session)}>{busy ? '…' : t('sendStrava')}</button>
-          )
-        )}
-        {err && <div className="small" style={{ color: 'var(--danger)' }}>{err}</div>}
-        <button className="btn ghost block" onClick={() => import('../integrations/fit').then((m) => m.downloadFit(session))}>⌚ {t('exportFit')}</button>
-        <div className="row">
-          {onClose && <button className="btn primary grow" onClick={onClose}>{t('close')}</button>}
-          <button className="btn danger" onClick={remove} aria-label={t('delete')}><Icon.trash /></button>
-        </div>
-      </div>
+      <Group header={t('share')}>
+        {stravaOn && (session.stravaId
+          ? <Cell title={t('sentStrava')} href={`https://www.strava.com/activities/${session.stravaId}`} icon={<Icon.upload />} iconBg="var(--strava)" chevron />
+          : <Cell title={busy ? '…' : t('sendStrava')} onClick={() => send(session)} icon={<Icon.upload />} iconBg="var(--strava)" chevron />)}
+        <Cell title={t('exportFit')} onClick={() => import('../integrations/fit').then((m) => m.downloadFit(session))} icon={<Icon.watch />} iconBg="#1c1c1e" chevron />
+      </Group>
+      {err && <div className="group-footer" style={{ color: 'var(--red)' }}>{err}</div>}
+
+      <Group style={{ marginTop: 24 }}>
+        <Cell title={t('deleteWorkout')} onClick={remove} danger />
+      </Group>
+      {onClose && <button className="btn filled block mt24" onClick={onClose}>{t('done')}</button>}
     </div>
   );
 }

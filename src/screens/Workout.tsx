@@ -7,7 +7,7 @@ import { uploadToStrava } from '../integrations/strava';
 import { e1rm, increment, lastPerformance, suggest, weekInfo } from '../lib/plan';
 import { discardWorkout, finishWorkout, fmtPace, pace, updateActive, updateSession } from '../lib/workout';
 import { getState, useStore, type LoggedSet } from '../store';
-import { ExerciseDetail, Sheet, Stepper, SwimForm } from '../ui';
+import { Cell, ExerciseDetail, Group, haptic, NavBar, Sheet, Stepper, SwimForm } from '../ui';
 
 function beep() {
   try {
@@ -25,7 +25,7 @@ function beep() {
   } catch { /* audio not available */ }
 }
 
-function RestBar({ until, total, onChange, onDone }: { until: number; total: number; onChange: (until: number) => void; onDone: () => void }) {
+function RestTimer({ until, total, onChange, onDone }: { until: number; total: number; onChange: (until: number) => void; onDone: () => void }) {
   const { t } = useT();
   const sound = useStore((s) => s.settings.restSound);
   const [now, setNow] = useState(Date.now());
@@ -33,7 +33,7 @@ function RestBar({ until, total, onChange, onDone }: { until: number; total: num
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
+    const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
   }, []);
   const left = Math.max(0, Math.ceil((until - now) / 1000));
@@ -41,20 +41,26 @@ function RestBar({ until, total, onChange, onDone }: { until: number; total: num
     if (left === 0 && !fired.current) {
       fired.current = true;
       if (sound) beep();
-      setTimeout(() => doneRef.current(), 1500);
+      setTimeout(() => doneRef.current(), 1200);
     }
     if (left > 0) fired.current = false;
   }, [left, sound]);
-  const pct = total ? (left / total) * 100 : 0;
+  const frac = total ? Math.max(0, (until - now) / 1000 / total) : 0;
+  const r = 19, c = 2 * Math.PI * r;
   return (
-    <div className="rest-bar" style={{ background: `linear-gradient(90deg, var(--accent) ${100 - pct}%, #a9d12a ${100 - pct}%)` }}>
+    <div className="timer-pill" role="timer" aria-live="off">
+      <svg className="ring" viewBox="0 0 46 46">
+        <circle cx="23" cy="23" r={r} fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="5" />
+        <circle cx="23" cy="23" r={r} fill="none" stroke="#30d158" strokeWidth="5" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - frac)} transform="rotate(-90 23 23)" />
+      </svg>
       <div className="grow">
-        <div className="small" style={{ fontWeight: 700 }}>{t('restTimer')}</div>
+        <div className="lbl">{t('restTimer')}</div>
         <div className="time" dir="ltr">{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</div>
       </div>
       <button dir="ltr" onClick={() => onChange(until - 15000)}>−15</button>
       <button dir="ltr" onClick={() => onChange(until + 15000)}>+15</button>
-      <button onClick={onDone}>{t('skip')}</button>
+      <button className="skip" onClick={onDone}>{t('skip')}</button>
     </div>
   );
 }
@@ -66,7 +72,8 @@ function Elapsed({ start }: { start: number }) {
     return () => clearInterval(id);
   }, []);
   const s = Math.floor((now - start) / 1000);
-  return <span dir="ltr">{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</span>;
+  const h = Math.floor(s / 3600);
+  return <span dir="ltr" className="num">{h ? `${h}:` : ''}{String(Math.floor((s % 3600) / 60)).padStart(h ? 2 : 1, '0')}:{String(s % 60).padStart(2, '0')}</span>;
 }
 
 export default function Workout({ onFinish }: { onFinish: (id: string, prs: string[]) => void }) {
@@ -133,15 +140,19 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
   };
 
   const doneSets = w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
+  const allSets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
 
   return (
-    <div style={{ paddingBottom: rest ? 90 : 0 }}>
-      <div className="row between">
-        <div>
-          <h1 style={{ marginBottom: 0 }}>{t(`day_${w.dayKey}` as Key)}</h1>
-          <div className="muted small">{t('week')} {w.week} · {t('targetRir')} {rir} · <Elapsed start={w.start} /></div>
-        </div>
-        <button className="btn danger sm" onClick={() => { if (confirm(t('discardConfirm'))) discardWorkout(); }}>{t('discard')}</button>
+    <div style={{ paddingBottom: rest ? 96 : 0 }}>
+      <NavBar
+        title={t(`day_${w.dayKey}` as Key)}
+        sub={<span>{t('week')} {w.week} · {t('targetRir')} {rir} · <Elapsed start={w.start} /></span>}
+        leading={<button className="nav-text-btn danger" onClick={() => { if (confirm(t('discardConfirm'))) discardWorkout(); }}>{t('cancel')}</button>}
+        actions={<button className="btn small filled" disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>{t('finishShort')}</button>}
+      />
+      <div className="week-track" aria-label={`${doneSets}/${allSets}`}>
+        <i className="on" style={{ flex: 'none', width: `${(doneSets / Math.max(1, allSets)) * 100}%`, background: 'var(--green)', transition: 'width .4s var(--ease)' }} />
+        <i style={{ flex: 1 }} />
       </div>
       {deload && <div className="hint">{t('deloadWeek')}</div>}
 
@@ -151,81 +162,67 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
         const s = suggest(history, e, deload);
         const hint: Key = s.kind === 'up' ? 'suggestUp' : s.kind === 'reps' ? 'suggestReps' : s.kind === 'deload' ? 'suggestDeload' : 'suggestFirst';
         const bwEx = ex.load === 'bodyweight';
+        const complete = e.sets.every((x) => x.done);
         return (
-          <section key={ei} className="ex-block">
+          <section key={ei} className={`ex-card ${complete ? 'complete' : ''}`}>
             <div className="ex-head">
-              <button className="thumb" style={{ border: 0, padding: 0 }} onClick={() => setDetail(e.exId)} aria-label={t('howTo')}>
+              <button className="thumb press" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}>
                 <Figure anim={ex.anim} highlight={ex.hl} playing={false} still={0.7} />
               </button>
               <div className="grow">
-                <b>{tx(ex.name)}</b>
-                <div className="muted small">{e.sets.length} × {e.reps[0]}-{e.reps[1]} {e.exId === 'plank' ? t('seconds') : t('reps')} · {t('rest')} {e.rest}{t('sec')}</div>
+                <div className="name">{tx(ex.name)}</div>
+                <div className="footnote secondary num">{e.sets.length} × {e.reps[0]}–{e.reps[1]} {e.exId === 'plank' ? t('sec') : t('reps')} · {t('rest')} {e.rest}{t('sec')}</div>
               </div>
               <button className="icon-btn" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}><Icon.info /></button>
             </div>
-            <div className="hint">{t(hint)}</div>
-            <table className="sets">
-              <thead>
-                <tr>
-                  <th>{t('set')}</th>
-                  <th>{bwEx ? `+${t('kg')}` : t('kg')}</th>
-                  <th>{e.exId === 'plank' ? t('sec') : t('reps')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {e.sets.map((set, si) => {
-                  const p = last?.sets[si];
-                  return (
-                    <tr key={si} className={set.done ? 'done' : ''}>
-                      <td>
-                        <b>{si + 1}</b>
-                        <div className="prev" dir="ltr">{p ? (p.w ? `${p.w}×${p.r}` : `${p.r}`) : ''}</div>
-                      </td>
-                      <td>
-                        <Stepper value={set.w} step={increment(ex) || 1} decimal placeholder={bwEx ? t('bw') : '0'}
-                          onChange={(w) => setField(ei, si, { w })} />
-                      </td>
-                      <td>
-                        <Stepper value={set.r} step={e.exId === 'plank' ? 5 : 1} onChange={(r) => setField(ei, si, { r: Math.round(r) })} />
-                      </td>
-                      <td>
-                        <button className={`check ${set.done ? 'on' : ''}`} onClick={() => toggleDone(ei, si)} aria-label="done"><Icon.check /></button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="row" style={{ marginTop: 8, gap: 6 }}>
-              <button className="btn sm ghost grow" onClick={() => addSet(ei)}>{t('addSet')}</button>
-              <button className="btn sm ghost" onClick={() => removeSet(ei)}>−</button>
+            <div className={`hint ${s.kind === 'up' ? 'up' : ''}`}>{t(hint)}</div>
+            <div className="set-grid">
+              <div className="hd">{t('set')}</div>
+              <div className="hd">{bwEx ? `+${t('kg')}` : t('kg')}</div>
+              <div className="hd">{e.exId === 'plank' ? t('sec') : t('reps')}</div>
+              <div />
+              {e.sets.map((set, si) => {
+                const p = last?.sets[si];
+                return (
+                  <div key={si} className={set.done ? 'set-row-done' : ''} style={{ display: 'contents' }}>
+                    <div className="set-num">{si + 1}</div>
+                    <Stepper value={set.w} step={increment(ex) || 1} decimal label={t('kg')} placeholder={bwEx ? t('bw') : '0'}
+                      onChange={(v) => setField(ei, si, { w: v })} />
+                    <Stepper value={set.r} step={e.exId === 'plank' ? 5 : 1} label={t('reps')} onChange={(r) => setField(ei, si, { r: Math.round(r) })} />
+                    <button className={`check ${set.done ? 'on' : ''}`} onClick={() => { haptic(set.done ? 5 : 15); toggleDone(ei, si); }} aria-pressed={set.done} aria-label={`${t('set')} ${si + 1}`}><Icon.check /></button>
+                    {p && <div />}
+                    {p && <div className="set-prev" dir="ltr">{t('previous')}: {p.w ? `${p.w} × ${p.r}` : p.r}</div>}
+                    {p && <div />}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="ex-foot">
+              <button className="btn small tinted grow" onClick={() => { haptic(); addSet(ei); }}><Icon.plus /> {t('addSetShort')}</button>
+              <button className="btn small gray" onClick={() => removeSet(ei)} aria-label={t('remove')}>−</button>
             </div>
           </section>
         );
       })}
 
-      {(w.swims ?? []).map((sw, i) => (
-        <div key={i} className="swim-row">
-          <span style={{ fontSize: 22 }}>🏊</span>
-          <div className="grow">
-            <b dir="ltr">{sw.distance} m · {Math.round(sw.duration / 60)} min</b>
-            <div className="muted small">{t(`st_${sw.stroke}` as Key)} · {t('pace100')} <span dir="ltr">{fmtPace(pace(sw))}</span></div>
-          </div>
-          <button className="icon-btn" aria-label={t('remove')}
-            onClick={() => updateActive((a) => ({ ...a, swims: (a.swims ?? []).filter((_, j) => j !== i) }))}><Icon.trash /></button>
-        </div>
-      ))}
-      <button className="btn ghost block" style={{ marginTop: 12 }} onClick={() => setSwimOpen(true)}>{t('addSwim')}</button>
+      <Group header={t('swim')}>
+        {(w.swims ?? []).map((sw, i) => (
+          <Cell key={i} icon={<Icon.swim />} iconBg="var(--cyan)"
+            title={<span dir="ltr" className="num">{sw.distance} m · {Math.round(sw.duration / 60)} min</span>}
+            sub={<>{t(`st_${sw.stroke}` as Key)} · {t('pace100')} <span dir="ltr">{fmtPace(pace(sw))}</span></>}
+            trailing={<button className="icon-btn" aria-label={t('remove')} onClick={() => updateActive((a) => ({ ...a, swims: (a.swims ?? []).filter((_, j) => j !== i) }))}><Icon.trash /></button>} />
+        ))}
+        <Cell title={t('addSwim')} onClick={() => setSwimOpen(true)} />
+      </Group>
 
-      <button className="btn primary block" style={{ marginTop: 12 }} disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>
-        {t('finish')} ({doneSets})
+      <button className="btn filled block mt24" disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>
+        {t('finish')}
       </button>
 
-      {rest && <RestBar until={rest.until} total={rest.total} onChange={(until) => setRest({ ...rest, until })} onDone={() => setRest(null)} />}
+      {rest && <RestTimer until={rest.until} total={rest.total} onChange={(until) => setRest({ ...rest, until })} onDone={() => setRest(null)} />}
       {detail && <Sheet onClose={() => setDetail(null)}><ExerciseDetail exId={detail} /></Sheet>}
       {swimOpen && (
-        <Sheet onClose={() => setSwimOpen(false)}>
+        <Sheet title={t('swim')} onClose={() => setSwimOpen(false)}>
           <SwimForm onSave={(sw) => { updateActive((a) => ({ ...a, swims: [...(a.swims ?? []), sw] })); setSwimOpen(false); }} />
         </Sheet>
       )}

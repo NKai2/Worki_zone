@@ -2,8 +2,9 @@ import { useState } from 'react';
 import Figure from '../anim/Figure';
 import { EXERCISES } from '../data/exercises';
 import type { Muscle } from '../data/types';
-import { MUSCLES, useT } from '../i18n';
-import { ExerciseDetail, Sheet } from '../ui';
+import { Icon } from '../Icons';
+import { MUSCLES, useT, type Key } from '../i18n';
+import { Cell, ExerciseDetail, Group, LangButton, NavBar, Sheet } from '../ui';
 
 const GROUPS: Muscle[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'];
 
@@ -22,29 +23,26 @@ export default function Library() {
 
   return (
     <div>
-      <h1>{t('libraryTitle')}</h1>
-      <input className="input" style={{ margin: '10px 0' }} placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="filters">
-        <button className={!muscle ? 'on' : ''} onClick={() => setMuscle(null)}>{t('all')}</button>
+      <NavBar title={t('libraryTitle')} actions={<LangButton />} />
+      <label className="search">
+        <Icon.search />
+        <input type="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
+      </label>
+      <div className="chips mt12">
+        <button className={`chip ${!muscle ? 'on' : ''}`} onClick={() => setMuscle(null)}>{t('all')}</button>
         {GROUPS.map((m) => (
-          <button key={m} className={muscle === m ? 'on' : ''} onClick={() => setMuscle(m)}>{tx(MUSCLES[m])}</button>
+          <button key={m} className={`chip ${muscle === m ? 'on' : ''}`} onClick={() => setMuscle(muscle === m ? null : m)}>{tx(MUSCLES[m])}</button>
         ))}
       </div>
-      <div style={{ marginTop: 8 }}>
+      <Group style={{ marginTop: 12 }} footer={`${list.length} ${t('exercises')}`}>
+        {list.length === 0 && <div className="empty">{t('noResults')}</div>}
         {list.map((e) => (
-          <button key={e.id} className="list-item" onClick={() => setOpen(e.id)}>
-            <div className="thumb"><Figure anim={e.anim} highlight={e.hl} playing={false} still={0.7} /></div>
-            <div className="grow">
-              <b>{tx(e.name)}</b>
-              <div className="muted small">
-                {e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')}
-                {' · '}
-                {e.equip.length ? e.equip.map((x) => t(`eq_${x}`)).join(', ') : t('noEquipment')}
-              </div>
-            </div>
-          </button>
+          <Cell key={e.id} onClick={() => setOpen(e.id)} chevron inset={80}
+            leading={<div className="thumb"><Figure anim={e.anim} highlight={e.hl} playing={false} still={0.7} /></div>}
+            title={tx(e.name)}
+            sub={`${e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')} — ${e.equip.length ? e.equip.map((x) => t(`eq_${x}` as Key)).join(', ') : t('noEquipment')}`} />
         ))}
-      </div>
+      </Group>
       {open && <Sheet onClose={() => setOpen(null)}><ExerciseDetail exId={open} /></Sheet>}
     </div>
   );

@@ -1,8 +1,10 @@
 import { useRef } from 'react';
 import { EX } from '../data/exercises';
+import { Icon } from '../Icons';
 import { useT } from '../i18n';
 import { connectStrava, redirectUri } from '../integrations/strava';
 import { getState, replaceState, resetState, updateSettings, useStore, type State } from '../store';
+import { Cell, Group, NavBar, Segmented, Switch } from '../ui';
 
 function download(name: string, text: string, type: string) {
   const a = document.createElement('a');
@@ -12,7 +14,7 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-export default function SettingsScreen({ toast }: { toast: (msg: string) => void }) {
+export default function SettingsScreen({ toast, back }: { toast: (msg: string) => void; back: () => void }) {
   const { t } = useT();
   const settings = useStore((s) => s.settings);
   const bodyweight = useStore((s) => s.bodyweight);
@@ -46,88 +48,84 @@ export default function SettingsScreen({ toast }: { toast: (msg: string) => void
     }
   };
 
+  const field = { border: 0, background: 'transparent', outline: 'none', textAlign: 'end' as const, color: 'var(--label-2)' };
+
   return (
     <div>
-      <h1>{t('settingsTitle')}</h1>
+      <NavBar title={t('settingsTitle')}
+        leading={<button className="nav-text-btn" onClick={back}>‹ {t('navToday')}</button>} />
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="row between">
-          <b>{t('language')}</b>
-          <div className="row" style={{ gap: 6 }}>
-            <button className={`btn sm ${settings.lang === 'he' ? 'primary' : 'ghost'}`} onClick={() => updateSettings({ lang: 'he' })}>עברית</button>
-            <button className={`btn sm ${settings.lang === 'en' ? 'primary' : 'ghost'}`} onClick={() => updateSettings({ lang: 'en' })}>English</button>
-          </div>
+      <Group header={t('general')}>
+        <div className="cell" style={{ ['--inset' as string]: '58px' }}>
+          <span className="cell-icon" style={{ background: 'var(--tint)' }}><Icon.globe /></span>
+          <div className="grow cell-title">{t('language')}</div>
+          <div style={{ width: 150 }}><Segmented value={settings.lang} onChange={(lang) => updateSettings({ lang })} options={[['he', 'עברית'], ['en', 'English']]} /></div>
         </div>
-        <label className="row between" style={{ marginTop: 14 }}>
-          <span>{t('restSound')}</span>
-          <input type="checkbox" checked={settings.restSound} onChange={(e) => updateSettings({ restSound: e.target.checked })} />
-        </label>
-        <div className="muted small" style={{ marginTop: 12 }}>{t('installHint')}</div>
-      </div>
+        <div className="cell" style={{ ['--inset' as string]: '58px' }}>
+          <span className="cell-icon" style={{ background: '#5e5ce6' }}><Icon.moon /></span>
+          <div className="grow cell-title">{t('appearance')}</div>
+          <div style={{ width: 170 }}><Segmented value={settings.theme} onChange={(theme) => updateSettings({ theme })} options={[['auto', t('auto')], ['light', t('light')], ['dark', t('dark')]]} /></div>
+        </div>
+        <Cell icon={<Icon.bell />} iconBg="var(--red)" title={t('restSound')}
+          trailing={<Switch checked={settings.restSound} onChange={(restSound) => updateSettings({ restSound })} label={t('restSound')} />} />
+      </Group>
+      <div className="group-footer">{t('installHint')}</div>
 
-      <h2>{t('nutrition')}</h2>
-      <div className="card">
-        <div className="muted small">{t('nutritionSub')}</div>
+      <Group header={t('nutrition')} footer={t('nutritionSub')}>
         {kg ? (
-          <div className="stats" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 10 }}>
-            <div className="stat"><b>{Math.round(kg * 1.6)}-{Math.round(kg * 2.2)}</b><span>{t('protein')} ({t('grams')})</span></div>
-            <div className="stat"><b>{Math.round((kg * 33 + 250) / 50) * 50}</b><span>{t('calories')} ≈</span></div>
-          </div>
-        ) : <div className="small" style={{ marginTop: 8 }}>{t('enterBw')}</div>}
-      </div>
+          <>
+            <Cell icon={<Icon.leaf />} iconBg="var(--green)" title={t('protein')} detail={<span className="num">{Math.round(kg * 1.6)}–{Math.round(kg * 2.2)} {t('grams')}</span>} />
+            <Cell icon={<Icon.flame />} iconBg="var(--orange)" title={t('calories')} detail={<span className="num">≈ {(Math.round((kg * 33 + 250) / 50) * 50).toLocaleString()}</span>} />
+          </>
+        ) : <Cell title={t('enterBw')} />}
+      </Group>
 
-      <h2>{t('aiCoachSettings')}</h2>
-      <div className="card">
-        <p className="muted small" style={{ marginTop: 0 }}>{t('coachNeedsKey')}</p>
-        <label className="field"><span>{t('apiKey')}</span>
-          <input className="input" dir="ltr" type="password" placeholder="sk-ant-…" value={settings.anthropicKey} onChange={(e) => updateSettings({ anthropicKey: e.target.value })} />
-        </label>
-      </div>
-
-      <h2>{t('integrations')}</h2>
-      <div className="card">
-        <div className="row between">
-          <b style={{ color: 'var(--strava)' }}>Strava</b>
-          {settings.strava && <span className="pill accent">{t('connected')}{settings.strava.athlete ? ` · ${settings.strava.athlete}` : ''}</span>}
+      <Group header={t('aiCoachSettings')} footer={t('coachKeyFooter')}>
+        <div className="cell" style={{ ['--inset' as string]: '58px' }}>
+          <span className="cell-icon" style={{ background: '#5e5ce6' }}><Icon.key /></span>
+          <div className="cell-title">{t('apiKey')}</div>
+          <input className="grow" style={field} dir="ltr" type="password" autoComplete="off" placeholder="sk-ant-…" value={settings.anthropicKey} onChange={(e) => updateSettings({ anthropicKey: e.target.value })} />
         </div>
+      </Group>
+
+      <Group header="Strava" footer={settings.strava ? undefined : <>{t('stravaHelp')} <b dir="ltr">{location.hostname}</b></>}>
         {settings.strava ? (
           <>
-            <label className="row between" style={{ marginTop: 12 }}>
-              <span>{t('autoStrava')}</span>
-              <input type="checkbox" checked={settings.autoStrava} onChange={(e) => updateSettings({ autoStrava: e.target.checked })} />
-            </label>
-            <button className="btn ghost block" style={{ marginTop: 12 }} onClick={() => updateSettings({ strava: undefined })}>{t('disconnect')}</button>
+            <Cell icon={<Icon.upload />} iconBg="var(--strava)" title={t('connected')} detail={settings.strava.athlete} />
+            <Cell title={t('autoStrava')} trailing={<Switch checked={settings.autoStrava} onChange={(autoStrava) => updateSettings({ autoStrava })} label={t('autoStrava')} />} />
+            <Cell title={t('disconnect')} danger onClick={() => updateSettings({ strava: undefined })} />
           </>
         ) : (
           <>
-            <p className="muted small">{t('stravaHelp')} <code dir="ltr">{location.hostname}</code></p>
-            <label className="field"><span>Client ID</span>
-              <input className="input" dir="ltr" inputMode="numeric" value={settings.stravaClientId} onChange={(e) => updateSettings({ stravaClientId: e.target.value })} />
-            </label>
-            <label className="field"><span>Client Secret</span>
-              <input className="input" dir="ltr" type="password" value={settings.stravaSecret} onChange={(e) => updateSettings({ stravaSecret: e.target.value })} />
-            </label>
-            <button className="btn strava block" style={{ marginTop: 12 }} disabled={!settings.stravaClientId || !settings.stravaSecret} onClick={connectStrava}>
-              {t('connect')}
-            </button>
-            <div className="muted small" style={{ marginTop: 6 }} dir="ltr">{redirectUri()}</div>
+            <div className="cell">
+              <div className="cell-title">Client ID</div>
+              <input className="grow" style={field} dir="ltr" inputMode="numeric" placeholder="12345" value={settings.stravaClientId} onChange={(e) => updateSettings({ stravaClientId: e.target.value })} />
+            </div>
+            <div className="cell">
+              <div className="cell-title">Client Secret</div>
+              <input className="grow" style={field} dir="ltr" type="password" placeholder="••••••" value={settings.stravaSecret} onChange={(e) => updateSettings({ stravaSecret: e.target.value })} />
+            </div>
+            <Cell title={t('connect')} onClick={settings.stravaClientId && settings.stravaSecret ? connectStrava : undefined} />
           </>
         )}
-      </div>
-      <div className="card">
-        <b>Garmin Connect</b>
-        <p className="muted small" style={{ marginBottom: 0 }}>{t('garminHelp')}</p>
-      </div>
+      </Group>
+      {!settings.strava && <div className="group-footer" dir="ltr" style={{ textAlign: 'start' }}>{redirectUri()}</div>}
 
-      <h2>{t('data')}</h2>
-      <div className="stack">
-        <button className="btn ghost block" onClick={exportJson}>{t('exportJson')}</button>
-        <button className="btn ghost block" onClick={exportCsv}>{t('exportCsv')}</button>
-        <button className="btn ghost block" onClick={() => file.current?.click()}>{t('importJson')}</button>
-        <input ref={file} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
-        <button className="btn danger block" onClick={() => { if (confirm(t('resetConfirm'))) resetState(); }}>{t('resetAll')}</button>
-      </div>
-      <p className="muted small" style={{ textAlign: 'center', marginTop: 24 }}>Worki Zone · v0.1</p>
+      <Group header="Garmin Connect" footer={t('garminHelp')}>
+        <Cell icon={<Icon.watch />} iconBg="#1c1c1e" title={t('garminFit')} />
+      </Group>
+
+      <Group header={t('data')}>
+        <Cell icon={<Icon.download />} iconBg="var(--tint)" title={t('exportJson')} onClick={exportJson} chevron />
+        <Cell icon={<Icon.doc />} iconBg="var(--green)" title={t('exportCsv')} onClick={exportCsv} chevron />
+        <Cell icon={<Icon.upload />} iconBg="var(--orange)" title={t('importJson')} onClick={() => file.current?.click()} chevron />
+      </Group>
+      <input ref={file} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
+
+      <Group style={{ marginTop: 24 }}>
+        <Cell title={t('resetAll')} danger onClick={() => { if (confirm(t('resetConfirm'))) resetState(); }} />
+      </Group>
+      <p className="center footnote tertiary mt24">Worki Zone · 2.0</p>
     </div>
   );
 }

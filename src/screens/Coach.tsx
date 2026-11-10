@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 import { Anthropic, ask } from '../lib/coach';
+import type { Tab } from '../App';
+import { Icon } from '../Icons';
 import { updateSettings, useStore } from '../store';
+import { Group, LangButton, NavBar } from '../ui';
 
 interface Bubble { role: 'user' | 'assistant'; text: string; notes: string[] }
 
@@ -9,7 +12,7 @@ interface Bubble { role: 'user' | 'assistant'; text: string; notes: string[] }
 let apiHistory: Anthropic.Beta.BetaMessageParam[] = [];
 let bubbles: Bubble[] = [];
 
-export default function Coach() {
+export default function Coach(_props: { go?: (tab: Tab) => void }) {
   const { t } = useT();
   const key = useStore((s) => s.settings.anthropicKey);
   const [items, setItems] = useState<Bubble[]>(bubbles);
@@ -55,48 +58,60 @@ export default function Coach() {
   if (!key) {
     return (
       <div>
-        <h1>{t('coachTitle')}</h1>
-        <div className="card" style={{ marginTop: 12 }}>
-          <p className="small" style={{ marginTop: 0 }}>{t('coachNeedsKey')}</p>
-          <label className="field"><span>{t('apiKey')}</span>
-            <input className="input" dir="ltr" type="password" placeholder="sk-ant-…" value={keyDraft} onChange={(e) => setKeyDraft(e.target.value)} />
-          </label>
-          <button className="btn primary block" style={{ marginTop: 12 }} disabled={!keyDraft.trim()} onClick={() => updateSettings({ anthropicKey: keyDraft.trim() })}>{t('save')}</button>
+        <NavBar title={t('coachTitle')} actions={<LangButton />} />
+        <div className="center mt16">
+          <div className="ob-hero" style={{ background: 'linear-gradient(145deg,#5e5ce6,#007aff)' }}><Icon.sparkle /></div>
+          <p className="secondary" style={{ margin: '16px 8px', lineHeight: 1.45 }}>{t('coachNeedsKey')}</p>
         </div>
+        <Group header={t('apiKey')}>
+          <div className="cell">
+            <Icon.key />
+            <input className="grow" style={{ border: 0, background: 'transparent', outline: 'none' }} dir="ltr" type="password" autoComplete="off"
+              placeholder="sk-ant-…" value={keyDraft} onChange={(e) => setKeyDraft(e.target.value)} />
+          </div>
+        </Group>
+        <button className="btn filled block mt16" disabled={!keyDraft.trim()} onClick={() => updateSettings({ anthropicKey: keyDraft.trim() })}>{t('save')}</button>
+        <a className="btn plain block mt8" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">{t('getKey')}</a>
       </div>
     );
   }
 
+  const last = items[items.length - 1];
   return (
     <div>
-      <div className="row between">
-        <h1>{t('coachTitle')}</h1>
-        {items.length > 0 && <button className="btn sm ghost" onClick={reset} disabled={busy}>{t('newChat')}</button>}
-      </div>
+      <NavBar title={t('coachTitle')} actions={<>
+        <LangButton />
+        {items.length > 0 && <button className="nav-btn" onClick={reset} disabled={busy} aria-label={t('newChat')}><Icon.edit /></button>}
+      </>} />
 
-      <div className="chat" style={{ marginTop: 10 }}>
+      <div className="chat">
         {items.length === 0 && (
           <>
             <div className="bubble assistant">{t('coachIntro')}</div>
-            <div className="chip-row">
-              {t('suggestions').split('|').map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
+            <div className="suggest-list">
+              {t('suggestions').split('|').map((s) => (
+                <button key={s} className="press" onClick={() => send(s)}><Icon.sparkle />{s}</button>
+              ))}
             </div>
           </>
         )}
-        {items.map((b, i) => (
+        {items.map((b, i) => (b.text || b.notes.length || b.role === 'user') ? (
           <div key={i} className={`bubble ${b.role}`} dir="auto">
-            {b.text || (busy && i === items.length - 1 ? <span className="muted">{t('thinking')}</span> : '')}
-            {b.notes.map((n) => <span key={n} className="note" dir="ltr">{n}</span>)}
+            {b.text}
+            {b.notes.map((n) => <span key={n} className="note" dir="ltr"><Icon.check />{n}</span>)}
           </div>
-        ))}
+        ) : null)}
+        {busy && last && !last.text && (
+          <div className="bubble assistant" aria-label={t('thinking')}><span className="typing"><i /><i /><i /></span></div>
+        )}
         <div ref={end} />
       </div>
 
-      <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(text); }}>
+      <form className="composer" onSubmit={(e) => { e.preventDefault(); send(text); }}>
         <div className="inner">
           <textarea rows={1} dir="auto" value={text} placeholder={t('coachPlaceholder')} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }} />
-          <button className="btn primary" type="submit" disabled={busy || !text.trim()}>{t('send')}</button>
+          <button className="send-btn" type="submit" disabled={busy || !text.trim()} aria-label={t('send')}><Icon.arrowUp /></button>
         </div>
       </form>
     </div>

@@ -6,116 +6,118 @@ import { Icon } from '../Icons';
 import { MUSCLES, useT, type Key } from '../i18n';
 import { alternatives, available, makeSlot, patternOf, setsFor, weekInfo, weeklySetsPerMuscle } from '../lib/plan';
 import { getState, setState, useStore, type Slot } from '../store';
-import { Bars, ExerciseDetail, Sheet } from '../ui';
+import { Bars, Cell, ExerciseDetail, Group, LangButton, NavBar, Segmented, Sheet, Stepper } from '../ui';
 
-type Target = { day: number; slot: number } | { day: number; slot: -1 };
+type Picker = { day: number; slot: number }; // slot -1 = add new
+
+const ORDER: Muscle[] = ['chest', 'back', 'shoulders', 'rearDelts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'];
 
 export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
   const { t, tx } = useT();
   const plan = useStore((s) => s.plan)!;
   const profile = useStore((s) => s.profile)!;
   const pointer = useStore((s) => s.pointer);
-  const [swap, setSwap] = useState<Target | null>(null);
+  const [day, setDay] = useState(pointer.dayIndex % plan.days.length);
+  const [edit, setEdit] = useState<number | null>(null);
+  const [picker, setPicker] = useState<Picker | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const week = Math.min(pointer.week, plan.weeks);
   const info = weekInfo(plan, week);
+  const d = plan.days[day];
 
-  const editSlot = (day: number, slot: number, fn: (s: Slot) => Slot | null) => {
+  const editSlot = (dayIdx: number, slot: number, fn: (s: Slot) => Slot | null) => {
     const p = getState().plan!;
-    const days = p.days.map((d, i) => {
-      if (i !== day) return d;
-      const slots = d.slots.map((s, j) => (j === slot ? fn(s) : s)).filter(Boolean) as Slot[];
-      return { ...d, slots };
-    });
+    const days = p.days.map((x, i) => (i !== dayIdx ? x : { ...x, slots: x.slots.map((s, j) => (j === slot ? fn(s) : s)).filter(Boolean) as Slot[] }));
     setState({ plan: { ...p, days } });
   };
 
   const choose = (exId: string) => {
-    if (!swap) return;
+    if (!picker) return;
     const ex = EX[exId];
-    if (swap.slot === -1) {
+    if (picker.slot === -1) {
       const p = getState().plan!;
-      const days = p.days.map((d, i) => (i === swap.day ? { ...d, slots: [...d.slots, makeSlot(ex, patternOf(ex.id), profile.experience)] } : d));
+      const days = p.days.map((x, i) => (i === picker.day ? { ...x, slots: [...x.slots, makeSlot(ex, patternOf(ex.id), profile.experience)] } : x));
       setState({ plan: { ...p, days } });
     } else {
-      editSlot(swap.day, swap.slot, (s) => ({ ...s, exId, pattern: patternOf(exId), reps: ex.reps, rest: ex.rest }));
+      editSlot(picker.day, picker.slot, (s) => ({ ...s, exId, pattern: patternOf(exId), reps: ex.reps, rest: ex.rest }));
     }
-    setSwap(null);
+    setPicker(null);
+    setEdit(null);
   };
 
-  const volume = weeklySetsPerMuscle(plan.days.flatMap((d) => d.slots.map((s) => ({ exId: s.exId, sets: setsFor(s, plan, week) }))));
-  const order: Muscle[] = ['chest', 'back', 'shoulders', 'rearDelts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'];
-
-  const options = swap
-    ? swap.slot === -1
+  const volume = weeklySetsPerMuscle(plan.days.flatMap((x) => x.slots.map((s) => ({ exId: s.exId, sets: setsFor(s, plan, week) }))));
+  const options = picker
+    ? picker.slot === -1
       ? EXERCISES.filter((e) => available(e, profile.equipment))
-      : alternatives(plan.days[swap.day].slots[swap.slot].exId, plan.days[swap.day].slots[swap.slot].pattern, profile.equipment)
+      : alternatives(plan.days[picker.day].slots[picker.slot].exId, plan.days[picker.day].slots[picker.slot].pattern, profile.equipment)
     : [];
+  const slot = edit !== null ? d.slots[edit] : null;
 
   return (
     <div>
-      <h1>{t('planTitle')}</h1>
-      <div className="muted small">
-        {t('mesocycle')} {plan.weeks} {t('weeks')} · {plan.days.length} {t('daysPerWeek')} · {t('week')} {week} · {t('targetRir')} {info.rir}
-      </div>
-      <div className="muted small" style={{ marginTop: 4 }}>{t('rirExplain')}</div>
+      <NavBar
+        title={t('planTitle')}
+        sub={`${t('week')} ${week} ${t('of')} ${plan.weeks} · ${plan.days.length} ${t('daysPerWeek')} · ${t('targetRir')} ${info.rir}`}
+        actions={<LangButton />}
+      />
 
-      {plan.days.map((d, di) => (
-        <section key={di} className="card" style={{ marginTop: 14 }}>
-          <div className="row between">
-            <h3 style={{ margin: 0 }}>{di + 1}. {t(`day_${d.key}` as Key)}</h3>
-            {pointer.dayIndex === di && <span className="pill accent">{t('nextWorkout')}</span>}
+      <Segmented lg options={plan.days.map((_, i) => [i, `${t('dayShort')} ${i + 1}`] as [number, string])} value={day} onChange={setDay} />
+
+      <Group
+        header={<span>{t(`day_${d.key}` as Key)}{pointer.dayIndex === day ? ` · ${t('nextWorkout')}` : ''}</span>}
+        footer={t('rirExplain')}
+      >
+        {d.slots.map((s, si) => {
+          const ex = EX[s.exId];
+          return (
+            <Cell key={`${s.exId}-${si}`} onClick={() => setEdit(si)} chevron inset={80}
+              leading={<div className="thumb"><Figure anim={ex.anim} highlight={ex.hl} playing={false} still={0.7} /></div>}
+              title={tx(ex.name)}
+              sub={<span className="num">{setsFor(s, plan, week)} × {s.reps[0]}–{s.reps[1]} · {s.rest}{t('sec')}</span>} />
+          );
+        })}
+        <Cell title={`+ ${t('addExercise')}`} onClick={() => setPicker({ day, slot: -1 })} />
+      </Group>
+
+      <Group header={t('weeklyVolume')} footer={t('volumeHint')}>
+        <div className="cell" style={{ display: 'block', padding: 16 }}>
+          <Bars data={ORDER.filter((m) => volume[m]).map((m) => [tx(MUSCLES[m]), volume[m]!])} max={24} target={[10, 20]} />
+        </div>
+      </Group>
+
+      <Group style={{ marginTop: 24 }}>
+        <Cell title={t('rebuild')} onClick={() => { if (confirm(t('rebuildConfirm'))) onRebuild(); }} />
+      </Group>
+
+      {slot && edit !== null && !picker && (
+        <Sheet title={tx(EX[slot.exId].name)} onClose={() => setEdit(null)}>
+          <div className="stage" style={{ maxWidth: 260, margin: '0 auto' }}>
+            <Figure anim={EX[slot.exId].anim} highlight={EX[slot.exId].hl} />
           </div>
-          {d.slots.map((s, si) => {
-            const ex = EX[s.exId];
-            return (
-              <div key={si} className="row" style={{ marginTop: 10 }}>
-                <button className="thumb" style={{ border: 0, padding: 0 }} onClick={() => setDetail(s.exId)} aria-label={t('howTo')}>
-                  <Figure anim={ex.anim} highlight={ex.hl} playing={false} still={0.7} />
-                </button>
-                <div className="grow">
-                  <button onClick={() => setDetail(s.exId)} style={{ background: 'none', border: 0, padding: 0, textAlign: 'start', fontWeight: 700 }}>
-                    {tx(ex.name)}
-                  </button>
-                  <div className="muted small">
-                    {setsFor(s, plan, week)} × {s.reps[0]}-{s.reps[1]} · {t('rest')} {s.rest}{t('sec')}
-                  </div>
-                  <div className="row" style={{ gap: 4, marginTop: 4 }}>
-                    <button className="btn sm ghost" onClick={() => editSlot(di, si, (x) => ({ ...x, sets: Math.max(1, x.sets - 1) }))}>−</button>
-                    <button className="btn sm ghost" onClick={() => editSlot(di, si, (x) => ({ ...x, sets: Math.min(8, x.sets + 1) }))}>+</button>
-                    <button className="btn sm ghost" onClick={() => setSwap({ day: di, slot: si })}><Icon.swap /> {t('swap')}</button>
-                    <button className="btn sm ghost" onClick={() => editSlot(di, si, () => null)} aria-label={t('remove')}><Icon.trash /></button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <button className="btn sm ghost block" style={{ marginTop: 12 }} onClick={() => setSwap({ day: di, slot: -1 })}>+ {t('addExercise')}</button>
-        </section>
-      ))}
+          <Group header={t('baseSets')} footer={t('baseSetsHint')}>
+            <div className="cell">
+              <div className="grow"><Stepper value={slot.sets} step={1} label={t('sets')} onChange={(v) => editSlot(day, edit, (x) => ({ ...x, sets: Math.min(8, Math.max(1, Math.round(v))) }))} /></div>
+            </div>
+          </Group>
+          <Group style={{ marginTop: 20 }}>
+            <Cell title={t('howTo')} icon={<Icon.info />} onClick={() => setDetail(slot.exId)} chevron />
+            <Cell title={t('swap')} icon={<Icon.swap />} iconBg="#5e5ce6" onClick={() => setPicker({ day, slot: edit })} chevron />
+          </Group>
+          <Group style={{ marginTop: 20 }}>
+            <Cell title={t('remove')} danger onClick={() => { editSlot(day, edit, () => null); setEdit(null); }} />
+          </Group>
+        </Sheet>
+      )}
 
-      <h2>{t('weeklyVolume')}</h2>
-      <div className="card">
-        <Bars data={order.filter((m) => volume[m]).map((m) => [tx(MUSCLES[m]), volume[m]!])} max={24} target={[10, 20]} />
-        <div className="muted small" style={{ marginTop: 10 }}>{t('volumeHint')}</div>
-      </div>
-
-      <button className="btn ghost block" style={{ marginTop: 16 }} onClick={() => { if (confirm(t('rebuildConfirm'))) onRebuild(); }}>
-        {t('rebuild')}
-      </button>
-
-      {swap && (
-        <Sheet onClose={() => setSwap(null)}>
-          <h2 style={{ marginTop: 0 }}>{swap.slot === -1 ? t('addExercise') : t('swapTitle')}</h2>
-          {options.map((e) => (
-            <button key={e.id} className="list-item" onClick={() => choose(e.id)}>
-              <div className="thumb"><Figure anim={e.anim} highlight={e.hl} playing={false} still={0.7} /></div>
-              <div className="grow">
-                <b>{tx(e.name)}</b>
-                <div className="muted small">{e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')}</div>
-              </div>
-            </button>
-          ))}
+      {picker && (
+        <Sheet title={picker.slot === -1 ? t('addExercise') : t('swapTitle')} onClose={() => setPicker(null)}>
+          <Group>
+            {options.map((e) => (
+              <Cell key={e.id} onClick={() => choose(e.id)} inset={80}
+                leading={<div className="thumb"><Figure anim={e.anim} highlight={e.hl} playing={false} still={0.7} /></div>}
+                title={tx(e.name)} sub={e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')} />
+            ))}
+          </Group>
         </Sheet>
       )}
       {detail && <Sheet onClose={() => setDetail(null)}><ExerciseDetail exId={detail} /></Sheet>}

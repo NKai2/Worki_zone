@@ -67,6 +67,7 @@ export interface Settings {
   strava?: StravaAuth;
   autoStrava: boolean;
   anthropicKey: string;
+  theme: 'auto' | 'light' | 'dark';
 }
 
 export interface State {
@@ -90,7 +91,7 @@ const initial: State = {
   active: null,
   history: [],
   bodyweight: [],
-  settings: { lang: 'he', restSound: true, stravaClientId: '', stravaSecret: '', autoStrava: false, anthropicKey: '' },
+  settings: { lang: 'he', restSound: true, stravaClientId: '', stravaSecret: '', autoStrava: false, anthropicKey: '', theme: 'auto' },
 };
 
 function load(): State {

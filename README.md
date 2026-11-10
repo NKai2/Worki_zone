@@ -1,6 +1,6 @@
 # Worki Zone 🏋️
 
-אפליקציית אימונים לבניית מסת שריר — עובדת בדפדפן ומותקנת על הטלפון (PWA), גם בלי אינטרנט.
+אפליקציית אימונים לבניית מסת שריר, בעיצוב בסגנון iOS (מצב בהיר וכהה) — עובדת בדפדפן ומותקנת על הטלפון (PWA), גם בלי אינטרנט.
 A hypertrophy training app that runs in the browser and installs on your phone (PWA), fully offline.
 
 ## מה יש בפנים / Features
