@@ -258,6 +258,7 @@ const dict = {
   equipFooter: { he: 'התוכנית תבחר רק תרגילים שאפשר לעשות עם הציוד שסומן.', en: 'The plan only picks exercises you can do with the selected equipment.' },
   qBodyweightTitle: { he: 'מה המשקל שלך?', en: "What's your weight?" },
   qBodyweightSub: { he: 'משמש להמלצות חלבון וקלוריות. אפשר לשנות בכל רגע.', en: 'Used for protein and calorie targets. You can change it anytime.' },
+  dragRotate: { he: 'גררו כדי לסובב', en: 'Drag to rotate' },
 } satisfies Record<string, Text>;
 
 export type Key = keyof typeof dict;

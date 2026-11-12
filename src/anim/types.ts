@@ -33,6 +33,8 @@ export type Seg = 'torso' | 'ua' | 'fa' | 'th' | 'sh' | 'hip' | 'shoulder';
 export interface Anim {
   view?: 'side' | 'front';
   noGround?: boolean;
+  /** Front view only: the hands move toward the camera, so the 3D figure extends the arms forward. */
+  reach3d?: boolean;
   /** Which joint stays fixed; its position is given in `at`. Default: frame.hip */
   anchor?: { joint: 'ankle' | 'hand'; at: Vec };
   frames: Frame[];

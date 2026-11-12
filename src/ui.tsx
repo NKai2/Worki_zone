@@ -1,11 +1,34 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Figure from './anim/Figure';
+import type { Anim, Seg } from './anim/types';
 import { EX } from './data/exercises';
 import { Icon } from './Icons';
 import { MUSCLES, useT, type Key } from './i18n';
 import { e1rm } from './lib/plan';
 import { fmtPace, pace } from './lib/workout';
 import { updateSettings, useStore, type Stroke, type SwimEntry } from './store';
+
+const Figure3D = lazy(() => import('./anim/Figure3D'));
+let has3d: boolean | undefined;
+const canUse3d = () => {
+  if (has3d === undefined) {
+    try {
+      const c = document.createElement('canvas');
+      has3d = !!(c.getContext('webgl2') || c.getContext('webgl'));
+    } catch { has3d = false; }
+  }
+  return has3d;
+};
+
+/** The exercise demo: a 3D mannequin where WebGL is available, the SVG figure otherwise. */
+export function Demo({ anim, highlight, playing = true }: { anim: Anim; highlight?: Seg[]; playing?: boolean }) {
+  if (!canUse3d()) return <Figure anim={anim} highlight={highlight} playing={playing} />;
+  return (
+    <Suspense fallback={<div className="figure3d" />}>
+      <Figure3D anim={anim} highlight={highlight} playing={playing} />
+    </Suspense>
+  );
+}
 
 /** A light tap where the platform supports it (Android); silently ignored elsewhere. */
 export const haptic = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* not supported */ } };
@@ -215,8 +238,9 @@ export function ExerciseDetail({ exId }: { exId: string }) {
 
   return (
     <div>
-      <div className="stage">
-        <Figure anim={ex.anim} highlight={ex.hl} playing={playing} />
+      <div className="stage stage3d">
+        <Demo anim={ex.anim} highlight={ex.hl} playing={playing} />
+        <span className="stage-hint">{t('dragRotate')}</span>
         <button className="icon-btn play" onClick={() => setPlaying(!playing)} aria-label={playing ? t('pause') : t('play')}>
           {playing ? <Icon.pause /> : <Icon.play />}
         </button>

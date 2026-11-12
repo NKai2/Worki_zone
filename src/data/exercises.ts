@@ -407,7 +407,7 @@ export const EXERCISES: Exercise[] = [
     mistakes: { he: ['הפיכת התנועה ללחיצה (כיפוף מרפקים)'], en: ['Turning it into a press by bending the elbows'] },
     hl: ['torso'],
     anim: {
-      view: 'front', armBend: -1,
+      view: 'front', armBend: -1, reach3d: true,
       props: [{ k: 'cable', from: [212, 36] }],
       frames: [
         { hip: [110, 124], t: -90, l: [90, 90], ah: [186, 72] },
@@ -428,7 +428,7 @@ export const EXERCISES: Exercise[] = [
     mistakes: { he: ['ירידה עמוקה מדי עם משקל כבד'], en: ['Going too deep with too much weight'] },
     hl: ['torso'],
     anim: {
-      view: 'front', armBend: -1, noGround: true,
+      view: 'front', armBend: -1, noGround: true, reach3d: true,
       props: [{ k: 'bench', from: [110, 58], to: [110, 150], legs: false }, { k: 'db' }],
       frames: [
         { hip: [110, 128], t: -90, l: [90, 90], ah: [120, 68] },

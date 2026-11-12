@@ -6,7 +6,7 @@ import { Icon } from '../Icons';
 import { MUSCLES, useT, type Key } from '../i18n';
 import { alternatives, available, makeSlot, patternOf, setsFor, weekInfo, weeklySetsPerMuscle } from '../lib/plan';
 import { getState, setState, useStore, type Slot } from '../store';
-import { Bars, Cell, ExerciseDetail, Group, LangButton, NavBar, Segmented, Sheet, Stepper } from '../ui';
+import { Bars, Cell, Demo, ExerciseDetail, Group, LangButton, NavBar, Segmented, Sheet, Stepper } from '../ui';
 
 type Picker = { day: number; slot: number }; // slot -1 = add new
 
@@ -91,8 +91,8 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
 
       {slot && edit !== null && !picker && (
         <Sheet title={tx(EX[slot.exId].name)} onClose={() => setEdit(null)}>
-          <div className="stage" style={{ maxWidth: 260, margin: '0 auto' }}>
-            <Figure anim={EX[slot.exId].anim} highlight={EX[slot.exId].hl} />
+          <div className="stage stage3d">
+            <Demo anim={EX[slot.exId].anim} highlight={EX[slot.exId].hl} />
           </div>
           <Group header={t('baseSets')} footer={t('baseSetsHint')}>
             <div className="cell">
