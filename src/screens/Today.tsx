@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import type { Tab } from '../App';
-import Figure from '../anim/Figure';
 import { EX } from '../data/exercises';
 import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
 import { generatePlan, setsFor, weekInfo } from '../lib/plan';
 import { logBodyweight, logSwim, sessionSets, sessionVolume, startWorkout, swimDistance } from '../lib/workout';
 import { getState, setState, useStore } from '../store';
-import { Cell, Group, haptic, LangButton, NavBar, Rings, Sheet, Stepper, SwimForm } from '../ui';
+import { Cell, Group, haptic, LangButton, NavBar, Rings, Sheet, Stepper, SwimForm, Thumb } from '../ui';
 import SessionSummary, { fmtDuration } from './SessionSummary';
 
 const WEEK = 7 * 864e5;
@@ -99,9 +98,7 @@ export default function Today({ go }: { go: (tab: Tab) => void }) {
           {info.deload && <div className="hint">{t('deloadWeek')}</div>}
           <div className="thumb-strip">
             {day.slots.map((s) => (
-              <div key={s.exId} className="thumb lg" title={tx(EX[s.exId].name)}>
-                <Figure anim={EX[s.exId].anim} highlight={EX[s.exId].hl} playing={false} still={0.7} />
-              </div>
+              <div key={s.exId} title={tx(EX[s.exId].name)}><Thumb exId={s.exId} lg /></div>
             ))}
           </div>
           <button className="btn filled block" onClick={start}><Icon.play /> {t('startWorkout')}</button>

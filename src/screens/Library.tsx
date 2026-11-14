@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import Figure from '../anim/Figure';
 import { EXERCISES } from '../data/exercises';
 import type { Muscle } from '../data/types';
 import { Icon } from '../Icons';
 import { MUSCLES, useT, type Key } from '../i18n';
-import { Cell, ExerciseDetail, Group, LangButton, NavBar, Sheet } from '../ui';
+import { Cell, ExerciseDetail, Group, LangButton, NavBar, Sheet, Thumb } from '../ui';
 
 const GROUPS: Muscle[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'];
 
@@ -38,7 +37,7 @@ export default function Library() {
         {list.length === 0 && <div className="empty">{t('noResults')}</div>}
         {list.map((e) => (
           <Cell key={e.id} onClick={() => setOpen(e.id)} chevron inset={80}
-            leading={<div className="thumb"><Figure anim={e.anim} highlight={e.hl} playing={false} still={0.7} /></div>}
+            leading={<Thumb exId={e.id} />}
             title={tx(e.name)}
             sub={`${e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')} — ${e.equip.length ? e.equip.map((x) => t(`eq_${x}` as Key)).join(', ') : t('noEquipment')}`} />
         ))}

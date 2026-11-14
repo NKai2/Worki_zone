@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Figure from './anim/Figure';
-import type { Anim, Seg } from './anim/types';
 import { EX } from './data/exercises';
 import { Icon } from './Icons';
 import { MUSCLES, useT, type Key } from './i18n';
@@ -8,7 +7,8 @@ import { e1rm } from './lib/plan';
 import { fmtPace, pace } from './lib/workout';
 import { updateSettings, useStore, type Stroke, type SwimEntry } from './store';
 
-const Figure3D = lazy(() => import('./anim/Figure3D'));
+const HumanFigure = lazy(() => import('./anim/HumanFigure'));
+const MuscleMapLazy = lazy(() => import('./anim/HumanFigure').then((m) => ({ default: m.MuscleMap })));
 let has3d: boolean | undefined;
 const canUse3d = () => {
   if (has3d === undefined) {
@@ -20,13 +20,41 @@ const canUse3d = () => {
   return has3d;
 };
 
-/** The exercise demo: a 3D mannequin where WebGL is available, the SVG figure otherwise. */
-export function Demo({ anim, highlight, playing = true }: { anim: Anim; highlight?: Seg[]; playing?: boolean }) {
-  if (!canUse3d()) return <Figure anim={anim} highlight={highlight} playing={playing} />;
+/** True when the app is showing its dark appearance. */
+export function useDark() {
+  const theme = useStore((s) => s.settings.theme);
+  const [sys, setSys] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => setSys(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return theme === 'dark' || (theme === 'auto' && sys);
+}
+
+/** The exercise demo: a realistic 3D human where WebGL is available, the SVG figure otherwise. */
+export function Demo({ exId, playing = true }: { exId: string; playing?: boolean }) {
+  const ex = EX[exId];
+  const dark = useDark();
+  if (!canUse3d()) return <Figure anim={ex.anim} highlight={ex.hl} playing={playing} />;
   return (
     <Suspense fallback={<div className="figure3d" />}>
-      <Figure3D anim={anim} highlight={highlight} playing={playing} />
+      <HumanFigure anim={ex.anim} primary={ex.muscles} secondary={ex.secondary} playing={playing} dark={dark} />
     </Suspense>
+  );
+}
+
+/** Small exercise picture: a pre-rendered still of the 3D human, the SVG figure if it is missing. */
+export function Thumb({ exId, lg }: { exId: string; lg?: boolean }) {
+  const ex = EX[exId];
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className={`thumb ${lg ? 'lg' : ''}`}>
+      {failed
+        ? <Figure anim={ex.anim} highlight={ex.hl} playing={false} still={0.7} />
+        : <img src={`${import.meta.env.BASE_URL}thumbs/${exId}.webp`} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />}
+    </div>
   );
 }
 
@@ -223,6 +251,7 @@ export function Rings({ values, colors, size = 132 }: { values: number[]; colors
 
 export function ExerciseDetail({ exId }: { exId: string }) {
   const { t, tx, lang } = useT();
+  const dark = useDark();
   const ex = EX[exId];
   const history = useStore((s) => s.history);
   const [playing, setPlaying] = useState(true);
@@ -239,7 +268,7 @@ export function ExerciseDetail({ exId }: { exId: string }) {
   return (
     <div>
       <div className="stage stage3d">
-        <Demo anim={ex.anim} highlight={ex.hl} playing={playing} />
+        <Demo exId={exId} playing={playing} />
         <span className="stage-hint">{t('dragRotate')}</span>
         <button className="icon-btn play" onClick={() => setPlaying(!playing)} aria-label={playing ? t('pause') : t('play')}>
           {playing ? <Icon.pause /> : <Icon.play />}
@@ -251,6 +280,19 @@ export function ExerciseDetail({ exId }: { exId: string }) {
         {ex.muscles.map((m) => <span key={m} className="tag orange">{tx(MUSCLES[m])}</span>)}
         {ex.secondary.map((m) => <span key={m} className="tag">{tx(MUSCLES[m])}</span>)}
       </div>
+
+      {canUse3d() && (
+        <Group header={t('targetMuscles')} footer={<span className="row" style={{ gap: 14 }}>
+          <span className="row" style={{ gap: 6 }}><i className="dot" style={{ background: '#d8452e' }} />{t('primary')}</span>
+          <span className="row" style={{ gap: 6 }}><i className="dot" style={{ background: '#4a72d6' }} />{t('secondary')}</span>
+        </span>}>
+          <div className="cell" style={{ display: 'block', padding: 8 }}>
+            <Suspense fallback={<div className="muscle-map" />}>
+              <MuscleMapLazy primary={ex.muscles} secondary={ex.secondary} dark={dark} />
+            </Suspense>
+          </div>
+        </Group>
+      )}
 
       <div className="tiles mt16">
         <div className="tile"><div className="k">{t('reps')}</div><div className="v">{ex.reps[0]}–{ex.reps[1]}{ex.id === 'plank' && <small> {t('sec')}</small>}</div></div>

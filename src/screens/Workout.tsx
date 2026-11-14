@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import Figure from '../anim/Figure';
 import { EX } from '../data/exercises';
 import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
@@ -7,7 +6,7 @@ import { uploadToStrava } from '../integrations/strava';
 import { e1rm, increment, lastPerformance, suggest, weekInfo } from '../lib/plan';
 import { discardWorkout, finishWorkout, fmtPace, pace, updateActive, updateSession } from '../lib/workout';
 import { getState, useStore, type LoggedSet } from '../store';
-import { Cell, ExerciseDetail, Group, haptic, NavBar, Sheet, Stepper, SwimForm } from '../ui';
+import { Cell, ExerciseDetail, Group, haptic, NavBar, Sheet, Stepper, SwimForm, Thumb } from '../ui';
 
 function beep() {
   try {
@@ -166,8 +165,8 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
         return (
           <section key={ei} className={`ex-card ${complete ? 'complete' : ''}`}>
             <div className="ex-head">
-              <button className="thumb press" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}>
-                <Figure anim={ex.anim} highlight={ex.hl} playing={false} still={0.7} />
+              <button className="press" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}>
+                <Thumb exId={e.exId} />
               </button>
               <div className="grow">
                 <div className="name">{tx(ex.name)}</div>

@@ -56,11 +56,20 @@ Garmin לא פותחת API לאפליקציות פרטיות, לכן יש שתי
 - לחבר Strava ↔ Garmin Connect, או
 - בסיכום אימון: **"הורד קובץ FIT"** → Garmin Connect (באתר) → ייבוא נתונים.
 
+## דמות האדם / Human model
+
+הדמות התלת־ממדית מבוססת על נכסי [MakeHuman](https://github.com/makehumancommunity/makehuman) ברישיון CC0. הקובץ `public/models/human.glb` נבנה עם:
+
+```bash
+python3 tools/build_human.py <makehuman>/makehuman/data public/models/human.glb
+npm run dev & node tools/render_thumbs.cjs   # תמונות ממוזערות לכל תרגיל
+```
+
 ## מבנה הקוד / Structure
 
 ```
 src/
-  anim/         SVG stick-figure engine (forward + inverse kinematics)
+  anim/         pose solver (FK + IK), SVG fallback figure, realistic 3D human (three.js)
   data/         exercise library (bilingual cues, animations)
   lib/plan.ts   plan generator, periodisation, double progression
   lib/workout.ts  workout session actions

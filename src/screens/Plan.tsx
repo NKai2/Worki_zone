@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import Figure from '../anim/Figure';
 import { EX, EXERCISES } from '../data/exercises';
 import type { Muscle } from '../data/types';
 import { Icon } from '../Icons';
 import { MUSCLES, useT, type Key } from '../i18n';
 import { alternatives, available, makeSlot, patternOf, setsFor, weekInfo, weeklySetsPerMuscle } from '../lib/plan';
 import { getState, setState, useStore, type Slot } from '../store';
-import { Bars, Cell, Demo, ExerciseDetail, Group, LangButton, NavBar, Segmented, Sheet, Stepper } from '../ui';
+import { Bars, Cell, Demo, ExerciseDetail, Group, LangButton, NavBar, Segmented, Sheet, Stepper, Thumb } from '../ui';
 
 type Picker = { day: number; slot: number }; // slot -1 = add new
 
@@ -71,7 +70,7 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
           const ex = EX[s.exId];
           return (
             <Cell key={`${s.exId}-${si}`} onClick={() => setEdit(si)} chevron inset={80}
-              leading={<div className="thumb"><Figure anim={ex.anim} highlight={ex.hl} playing={false} still={0.7} /></div>}
+              leading={<Thumb exId={s.exId} />}
               title={tx(ex.name)}
               sub={<span className="num">{setsFor(s, plan, week)} × {s.reps[0]}–{s.reps[1]} · {s.rest}{t('sec')}</span>} />
           );
@@ -92,7 +91,7 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
       {slot && edit !== null && !picker && (
         <Sheet title={tx(EX[slot.exId].name)} onClose={() => setEdit(null)}>
           <div className="stage stage3d">
-            <Demo anim={EX[slot.exId].anim} highlight={EX[slot.exId].hl} />
+            <Demo exId={slot.exId} />
           </div>
           <Group header={t('baseSets')} footer={t('baseSetsHint')}>
             <div className="cell">
@@ -114,7 +113,7 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
           <Group>
             {options.map((e) => (
               <Cell key={e.id} onClick={() => choose(e.id)} inset={80}
-                leading={<div className="thumb"><Figure anim={e.anim} highlight={e.hl} playing={false} still={0.7} /></div>}
+                leading={<Thumb exId={e.id} />}
                 title={tx(e.name)} sub={e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')} />
             ))}
           </Group>
