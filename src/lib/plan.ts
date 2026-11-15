@@ -7,10 +7,10 @@ import { uid } from '../store';
 const CANDIDATES: Record<Pattern, string[]> = {
   squat: ['squat', 'leg_press', 'goblet_squat', 'bw_squat'],
   hinge: ['rdl', 'db_rdl', 'deadlift', 'glute_bridge'],
-  glute: ['hip_thrust', 'glute_bridge'],
+  glute: ['hip_thrust', 'glute_bridge', 'back_extension'],
   lunge: ['bulgarian', 'split_squat'],
   quadIso: ['leg_extension', 'bulgarian', 'split_squat'],
-  hamIso: ['leg_curl', 'db_rdl', 'glute_bridge'],
+  hamIso: ['leg_curl', 'db_rdl', 'single_leg_rdl', 'glute_bridge'],
   calf: ['calf_raise'],
   hPush: ['bench_press', 'db_bench', 'chest_press', 'push_up'],
   iPush: ['incline_db_press', 'chest_press', 'push_up'],
@@ -22,7 +22,7 @@ const CANDIDATES: Record<Pattern, string[]> = {
   rearDelt: ['face_pull', 'inverted_row'],
   biceps: ['db_curl', 'barbell_curl', 'cable_curl', 'hammer_curl'],
   triceps: ['pushdown', 'overhead_ext', 'skull_crusher', 'bench_dip'],
-  core: ['hanging_leg_raise', 'leg_raise', 'crunch', 'plank'],
+  core: ['hanging_leg_raise', 'leg_raise', 'crunch', 'plank', 'dead_bug', 'bird_dog'],
 };
 
 type T = [Pattern, number];

@@ -914,6 +914,87 @@ export const EXERCISES: Exercise[] = [
       tempo: [2, 0.5, 2, 0.5],
     },
   },
+  // ───────────── Pelvis & lower back ─────────────
+  {
+    id: 'bird_dog',
+    name: { he: 'בירד דוג', en: 'Bird Dog' },
+    muscles: ['back', 'glutes'], secondary: ['abs', 'shoulders'],
+    equip: [], load: 'bodyweight', kind: 'isolation', reps: [6, 10], rest: 45,
+    cues: {
+      he: ['עמידת שש: ידיים מתחת לכתפיים, ברכיים מתחת לאגן', 'להדק בטן כאילו מישהו עומד לתת אגרוף קל', 'ליישר יד ורגל נגדית לקו אחד עם הגב — האגן לא מסתובב', 'להחזיק 5-8 שניות, לחזור לאט ולהחליף צד', 'החזרות נספרות לכל צד'],
+      en: ['On all fours: hands under shoulders, knees under hips', 'Brace your abs as if bracing for a light punch', 'Extend the opposite arm and leg into one line — the pelvis must not rotate', 'Hold 5-8 seconds, return slowly and switch sides', 'Reps are counted per side'],
+    },
+    mistakes: { he: ['קשת בגב התחתון כשהרגל עולה', 'סיבוב האגן לצד', 'תנועה מהירה בלי החזקה'], en: ['Arching the lower back as the leg rises', 'Letting the pelvis rotate', 'Rushing without the hold'] },
+    hl: ['torso', 'hip'],
+    anim: {
+      frames: [
+        { hip: [100, 162], t: -18, l: [90, 180], l2: [90, 180], f: 175, f2: 175, ah: [150, 207], aw2: [92, 92] },
+        { hip: [100, 162], t: -18, l: [180, 180], l2: [90, 180], f: 180, f2: 175, ah: [150, 207], aw2: [-12, -12] },
+      ],
+      tempo: [1.4, 1.6, 1.2, 0.6],
+    },
+  },
+  {
+    id: 'dead_bug',
+    name: { he: 'דד באג', en: 'Dead Bug' },
+    muscles: ['abs'], secondary: [],
+    equip: [], load: 'bodyweight', kind: 'isolation', reps: [6, 10], rest: 45,
+    cues: {
+      he: ['שכיבה על הגב, ידיים למעלה וברכיים ב-90°', 'להצמיד את הגב התחתון לרצפה ולשמור אותו צמוד כל הזמן', 'להוריד לאט יד ורגל נגדית עד ממש מעל הרצפה', 'לנשוף בזמן ההורדה ולחזור למרכז', 'החזרות נספרות לכל צד'],
+      en: ['Lie on your back, arms up and knees at 90°', 'Press the lower back into the floor and keep it there', 'Slowly lower the opposite arm and leg until just above the floor', 'Exhale as you lower, then return to the middle', 'Reps are counted per side'],
+    },
+    mistakes: { he: ['הגב התחתון מתרומם מהרצפה', 'עצירת נשימה'], en: ['Lower back lifting off the floor', 'Holding your breath'] },
+    hl: ['torso'],
+    anim: {
+      props: [{ k: 'mat', x1: 30, x2: 180 }],
+      frames: [
+        { hip: [100, 201], t: 180, l: [-90, 0], l2: [-90, 0], aw: [-90, -90], aw2: [-90, -90] },
+        { hip: [100, 201], t: 180, l: [-6, -6], l2: [-90, 0], aw: [-90, -90], aw2: [184, 184] },
+      ],
+      tempo: [1.8, 0.6, 1.4, 0.5],
+    },
+  },
+  {
+    id: 'back_extension',
+    name: { he: 'פשיטת גב בספסל 45°', en: '45° Back Extension' },
+    muscles: ['back', 'glutes'], secondary: ['hamstrings'],
+    equip: ['machine'], load: 'bodyweight', kind: 'compound', reps: [10, 15], rest: 75,
+    cues: {
+      he: ['הכרית מתחת לעצמות האגן — לא על הבטן', 'ידיים שלובות על החזה, גב ניטרלי', 'לרדת בשליטה מהאגן עד מתיחה בירך האחורית', 'לעלות בכיווץ ישבן עד קו ישר עם הרגליים — לא מעבר', 'להתקדם: להחזיק משקולת צמודה לחזה'],
+      en: ['Pad just below the hip bones — not on the belly', 'Arms crossed on the chest, neutral spine', 'Hinge down from the hips to a hamstring stretch', 'Squeeze the glutes up to a straight line — not past it', 'Progress by holding a plate to the chest'],
+    },
+    mistakes: { he: ['מתיחת יתר של הגב למעלה', 'תנועה מהירה עם תנופה'], en: ['Hyperextending past straight at the top', 'Swinging with momentum'] },
+    hl: ['torso', 'hip'],
+    anim: {
+      anchor: { joint: 'ankle', at: [50, 195] },
+      props: [{ k: 'step', x: 28, y: 199, w: 44 }, { k: 'pad' }, { k: 'bench', from: [101, 156], to: [119, 138] }],
+      frames: [
+        { t: 82, l: [135, 135], a: [60, -110], f: 100 },
+        { t: -45, l: [135, 135], a: [60, -110], f: 100 },
+      ],
+      tempo: [1.8, 0.4, 1.2, 0.8],
+    },
+  },
+  {
+    id: 'single_leg_rdl',
+    name: { he: 'דדליפט רומני על רגל אחת', en: 'Single-Leg Romanian Deadlift' },
+    muscles: ['hamstrings', 'glutes'], secondary: ['back', 'abs'],
+    equip: ['dumbbell'], load: 'dumbbell', kind: 'compound', reps: [8, 12], rest: 75,
+    cues: {
+      he: ['עמידה על רגל אחת, ברך מעט כפופה', 'לדחוף את האגן אחורה והרגל השנייה עולה לאחור בקו אחד עם הגב', 'שני צדי האגן נשארים מקבילים לרצפה — בלי לפתוח את האגן', 'לעלות בכיווץ ישבן של רגל העמידה', 'החזרות נספרות לכל רגל'],
+      en: ['Stand on one leg, knee slightly bent', 'Push the hips back as the free leg rises behind in line with the back', 'Keep both hips level — do not let the pelvis open', 'Stand up by squeezing the standing glute', 'Reps are counted per leg'],
+    },
+    mistakes: { he: ['פתיחת האגן לצד', 'עיגול הגב'], en: ['Rotating the pelvis open', 'Rounding the back'] },
+    hl: ['th', 'hip'],
+    anim: {
+      anchor: { joint: 'ankle', at: [112, 207] }, props: [{ k: 'db' }],
+      frames: [
+        { t: -88, l: [92, 88], l2: [92, 88], aw: [92, 92] },
+        { t: -8, l: [80, 95], l2: [172, 176], f2: 100, aw: [94, 94] },
+      ],
+      tempo: [1.8, 0.4, 1.2, 0.6],
+    },
+  },
 ];
 
 export const EX: Record<string, Exercise> = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));

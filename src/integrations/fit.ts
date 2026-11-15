@@ -16,7 +16,7 @@ const CATEGORY: Record<string, string> = {
   ohp: 'shoulderPress', db_shoulder_press: 'shoulderPress', lateral_raise: 'lateralRaise',
   db_curl: 'curl', hammer_curl: 'curl', barbell_curl: 'curl', cable_curl: 'curl',
   pushdown: 'tricepsExtension', overhead_ext: 'tricepsExtension', skull_crusher: 'tricepsExtension', bench_dip: 'tricepsExtension',
-  hanging_leg_raise: 'legRaise', leg_raise: 'legRaise', crunch: 'crunch', plank: 'plank',
+  hanging_leg_raise: 'legRaise', leg_raise: 'legRaise', crunch: 'crunch', plank: 'plank', bird_dog: 'core', dead_bug: 'core', back_extension: 'hyperextension', single_leg_rdl: 'deadlift',
 };
 
 /** Builds a FIT strength-training activity. Sets are spread evenly across the session time. */
