@@ -4,7 +4,7 @@ import { Anthropic, ask } from '../lib/coach';
 import type { Tab } from '../App';
 import { Icon } from '../Icons';
 import { updateSettings, useStore } from '../store';
-import { Group, LangButton, NavBar } from '../ui';
+import { Group, NavBar } from '../ui';
 
 interface Bubble { role: 'user' | 'assistant'; text: string; notes: string[] }
 
@@ -58,7 +58,7 @@ export default function Coach(_props: { go?: (tab: Tab) => void }) {
   if (!key) {
     return (
       <div>
-        <NavBar title={t('coachTitle')} actions={<LangButton />} />
+        <NavBar title={t('coachTitle')} />
         <div className="center mt16">
           <div className="ob-hero" style={{ background: 'linear-gradient(145deg,#5e5ce6,#007aff)' }}><Icon.sparkle /></div>
           <p className="secondary" style={{ margin: '16px 8px', lineHeight: 1.45 }}>{t('coachNeedsKey')}</p>
@@ -80,7 +80,6 @@ export default function Coach(_props: { go?: (tab: Tab) => void }) {
   return (
     <div>
       <NavBar title={t('coachTitle')} actions={<>
-        <LangButton />
         {items.length > 0 && <button className="nav-btn" onClick={reset} disabled={busy} aria-label={t('newChat')}><Icon.edit /></button>}
       </>} />
 

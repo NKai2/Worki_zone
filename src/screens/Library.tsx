@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { EXERCISES } from '../data/exercises';
 import type { Muscle } from '../data/types';
 import { Icon } from '../Icons';
-import { MUSCLES, useT, type Key } from '../i18n';
-import { Cell, ExerciseDetail, Group, LangButton, NavBar, Sheet, Thumb } from '../ui';
+import { MUSCLES, useT } from '../i18n';
+import { ExerciseDetail, NavBar, Sheet, Thumb } from '../ui';
 
 const GROUPS: Muscle[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'];
 
@@ -22,7 +22,7 @@ export default function Library() {
 
   return (
     <div>
-      <NavBar title={t('libraryTitle')} actions={<LangButton />} />
+      <NavBar title={t('libraryTitle')} />
       <label className="search">
         <Icon.search />
         <input type="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -33,15 +33,19 @@ export default function Library() {
           <button key={m} className={`chip ${muscle === m ? 'on' : ''}`} onClick={() => setMuscle(muscle === m ? null : m)}>{tx(MUSCLES[m])}</button>
         ))}
       </div>
-      <Group style={{ marginTop: 12 }} footer={`${list.length} ${t('exercises')}`}>
-        {list.length === 0 && <div className="empty">{t('noResults')}</div>}
+      {list.length === 0 && <div className="empty">{t('noResults')}</div>}
+      <div className="lib-grid">
         {list.map((e) => (
-          <Cell key={e.id} onClick={() => setOpen(e.id)} chevron inset={80}
-            leading={<Thumb exId={e.id} />}
-            title={tx(e.name)}
-            sub={`${e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')} — ${e.equip.length ? e.equip.map((x) => t(`eq_${x}` as Key)).join(', ') : t('noEquipment')}`} />
+          <button key={e.id} className="lib-card" onClick={() => setOpen(e.id)}>
+            <Thumb exId={e.id} />
+            <div className="b">
+              <div className="nm">{tx(e.name)}</div>
+              <div className="mu">{e.muscles.map((m) => tx(MUSCLES[m])).join(' · ')}</div>
+            </div>
+          </button>
         ))}
-      </Group>
+      </div>
+      <div className="group-footer center">{list.length} {t('exercises')}</div>
       {open && <Sheet onClose={() => setOpen(null)}><ExerciseDetail exId={open} /></Sheet>}
     </div>
   );

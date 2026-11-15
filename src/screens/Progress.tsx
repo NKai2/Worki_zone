@@ -6,7 +6,7 @@ import { MUSCLES, useT } from '../i18n';
 import { e1rm, weeklySetsPerMuscle } from '../lib/plan';
 import { fmtPace, logBodyweight, pace, sessionSets, sessionVolume } from '../lib/workout';
 import { useStore } from '../store';
-import { Bars, Cell, Group, haptic, LangButton, LineChart, NavBar, Segmented, Stepper } from '../ui';
+import { Bars, Cell, Group, haptic, LineChart, NavBar, Segmented, Stepper } from '../ui';
 
 const ORDER: Muscle[] = ['chest', 'back', 'shoulders', 'rearDelts', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'];
 type View = 'strength' | 'swim' | 'body';
@@ -52,7 +52,7 @@ export default function Progress() {
 
   return (
     <div>
-      <NavBar title={t('progressTitle')} actions={<LangButton />} />
+      <NavBar title={t('progressTitle')} />
       <Segmented lg value={view} onChange={setView}
         options={[['strength', t('strength')], ['swim', t('swim')], ['body', t('bodyweightTitle')]]} />
 
