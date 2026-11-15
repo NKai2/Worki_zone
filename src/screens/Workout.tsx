@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { EX } from '../data/exercises';
 import { Icon } from '../Icons';
-import { useT, type Key } from '../i18n';
+import { MUSCLES, useT, type Key } from '../i18n';
 import { uploadToStrava } from '../integrations/strava';
-import { alternatives, e1rm, increment, lastPerformance, patternOf, suggest, weekInfo } from '../lib/plan';
+import { e1rm, increment, lastPerformance, patternOf, suggest, swapGroups, weekInfo } from '../lib/plan';
 import { discardWorkout, finishWorkout, fmtPace, pace, updateActive, updateSession } from '../lib/workout';
 import { getState, setState, useStore, type LoggedSet } from '../store';
 import { Cell, ExerciseDetail, Group, haptic, Sheet, Switch, SwimForm, Thumb } from '../ui';
@@ -231,7 +231,7 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
 
   const fmt = (x: { w: number; r: number }) => (x.w ? `${x.w} × ${x.r}` : `${x.r}${secs ? ` ${t('sec')}` : ''}`);
   const hint = sug.kind === 'up' ? `${t('suggestUpShort')} ${sug.w} ${t('kg')}` : last ? `${t('lastTime')}: ${fmt(last.sets[Math.min(si < 0 ? 0 : si, last.sets.length - 1)])}` : bw ? null : t('suggestFirstShort');
-  const swapOptions = swap ? alternatives(w.exercises[swap.ei].exId, patternOf(w.exercises[swap.ei].exId), profile?.equipment ?? ['barbell', 'dumbbell', 'machine', 'cable', 'bench', 'pullup']) : [];
+  const swapOptions = swap ? swapGroups(w.exercises[swap.ei].exId, profile?.equipment ?? ['barbell', 'dumbbell', 'machine', 'cable', 'bench', 'pullup']) : { same: [], related: [] };
 
   return (
     <div className="wk" style={{ paddingBottom: rest ? 100 : 24 }}>
@@ -358,12 +358,16 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
           <div className="subhead secondary center" style={{ marginBottom: 10 }}>
             {t('swapInstead')} <b style={{ color: 'var(--label)' }}>{tx(EX[w.exercises[swap.ei].exId].name)}</b>
           </div>
-          <Group footer={w.exercises[swap.ei].sets.some((s) => s.done) ? t('swapKeepsDone') : undefined}>
-            {swapOptions.map((o) => (
-              <Cell key={o.id} leading={<Thumb exId={o.id} />} inset={80} onClick={() => doSwap(o.id)} chevron
-                title={tx(o.name)} sub={o.equip.length ? o.equip.map((q) => t(`eq_${q}` as Key)).join(' · ') : t('noEquipment')} />
-            ))}
-          </Group>
+          {[['sameFamily', swapOptions.same], ['closeAlternatives', swapOptions.related]].map(([k, list]) => (list as typeof swapOptions.same).length > 0 && (
+            <Group key={k as string} header={t(k as Key)}>
+              {(list as typeof swapOptions.same).map((o) => (
+                <Cell key={o.id} leading={<Thumb exId={o.id} />} inset={80} onClick={() => doSwap(o.id)} chevron
+                  title={tx(o.name)} sub={`${o.muscles.map((m) => tx(MUSCLES[m])).join(' · ')} — ${o.equip.length ? o.equip.map((q) => t(`eq_${q}` as Key)).join(', ') : t('noEquipment')}`} />
+              ))}
+            </Group>
+          ))}
+          {!swapOptions.same.length && !swapOptions.related.length && <div className="empty">{t('noSwap')}</div>}
+          {w.exercises[swap.ei].sets.some((s) => s.done) && <div className="group-footer">{t('swapKeepsDone')}</div>}
           <Group style={{ marginTop: 16 }}>
             <Cell title={t('swapPlanToo')} trailing={<Switch checked={swapPlanToo} onChange={setSwapPlanToo} label={t('swapPlanToo')} />} />
           </Group>

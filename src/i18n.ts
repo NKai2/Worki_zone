@@ -293,6 +293,9 @@ const dict = {
   setsCount: { he: 'סטים', en: 'Sets' },
   removeSet: { he: 'הסרת סט', en: 'Remove set' },
   removeWeight: { he: 'הסרה', en: 'Remove' },
+  sameFamily: { he: 'אותה תנועה, אותו שריר', en: 'Same movement, same muscle' },
+  closeAlternatives: { he: 'חלופות קרובות', en: 'Close alternatives' },
+  noSwap: { he: 'אין חלופה מתאימה עם הציוד שסימנת', en: 'No matching alternative with your equipment' },
   dragRotate: { he: 'גררו כדי לסובב', en: 'Drag to rotate' },
 } satisfies Record<string, Text>;
 

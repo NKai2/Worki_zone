@@ -36,6 +36,8 @@ export interface Plan {
   days: DayPlan[];
   /** Set when the plan comes from a built-in program (see lib/programs.ts) */
   program?: string;
+  /** Program revision the plan was built from */
+  rev?: number;
 }
 
 export interface LoggedSet { w: number; r: number; done: boolean }

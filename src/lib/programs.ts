@@ -34,30 +34,77 @@ const RX: Record<string, { rx: Rx; rest: number; notes?: (Text | null)[] }> = {
 
 type Item = [exId: string, rx: keyof typeof RX, pairWithNext?: boolean, note?: Text];
 
+/*
+ * Session order follows the usual rules for full-body hypertrophy work:
+ *   1. the heaviest lower-body compound first, while fresh
+ *   2. alternate upper / lower blocks so each area recovers while the other works
+ *   3. supersets only pair opposing, non-competing muscles (push + pull, biceps + triceps)
+ *   4. never two lower-back-loading exercises back to back
+ *   5. isolation work after compounds, smaller muscles last
+ *   6. core-stability work at the end, so the spinal stabilisers are fresh for squats and hinges
+ */
 const MASS16: Record<string, Item[]> = {
   massA: [
-    ['bird_dog', 'birddog'], ['squat', 'main'], ['hip_thrust', 'thrust'],
+    ['squat', 'main'],
     ['bench_press', 'main', true], ['lat_pulldown', 'main'],
-    ['leg_curl', 'acc', true], ['cable_fly', 'pump'],
+    ['hip_thrust', 'thrust'],
     ['db_shoulder_press', 'acc', true], ['cable_row', 'acc'],
+    ['leg_curl', 'acc', true], ['cable_fly', 'pump'],
     ['lateral_raise', 'pump'],
     ['db_curl', 'acc', true], ['pushdown', 'acc'],
+    ['bird_dog', 'birddog'],
   ],
   massB: [
-    ['dead_bug', 'deadbug'], ['rdl', 'main'], ['back_extension', 'backext'], ['bulgarian', 'acc'],
-    ['incline_db_press', 'main', true], ['barbell_row', 'main'],
-    ['pull_up', 'pullup', true], ['push_up', 'pushup'],
-    ['ohp', 'acc'], ['face_pull', 'pump'],
+    ['rdl', 'main'],
+    ['incline_db_press', 'main', true], ['pull_up', 'pullup'],
+    ['bulgarian', 'acc'],
+    ['barbell_row', 'main', true], ['push_up', 'pushup'],
+    ['ohp', 'acc', true], ['face_pull', 'pump'],
+    ['back_extension', 'backext'],
     ['hammer_curl', 'acc', true], ['overhead_ext', 'acc'],
+    ['dead_bug', 'deadbug'],
   ],
   massC: [
-    ['plank', 'plank'], ['leg_press', 'main'], ['single_leg_rdl', 'acc'], ['glute_bridge', 'bridge'],
+    ['leg_press', 'main'],
     ['db_bench', 'main', true], ['db_row', 'main'],
+    ['single_leg_rdl', 'acc'],
     ['db_fly', 'pump', true], ['lat_pulldown', 'acc', false, { he: 'אחיזה צרה, כפות כלפי הפנים', en: 'Close grip, palms facing you' }],
+    ['glute_bridge', 'bridge'],
     ['lateral_raise', 'pump', true], ['face_pull', 'pump'],
     ['barbell_curl', 'acc', true], ['skull_crusher', 'acc'],
+    ['plank', 'plank'],
   ],
 };
+
+/** Exercise order of the first release, used to re-order plans saved before revision 2. */
+const MASS16_V1: Record<string, string[]> = {
+  massA: ['bird_dog', 'squat', 'hip_thrust', 'bench_press', 'lat_pulldown', 'leg_curl', 'cable_fly', 'db_shoulder_press', 'cable_row', 'lateral_raise', 'db_curl', 'pushdown'],
+  massB: ['dead_bug', 'rdl', 'back_extension', 'bulgarian', 'incline_db_press', 'barbell_row', 'pull_up', 'push_up', 'ohp', 'face_pull', 'hammer_curl', 'overhead_ext'],
+  massC: ['plank', 'leg_press', 'single_leg_rdl', 'glute_bridge', 'db_bench', 'db_row', 'db_fly', 'lat_pulldown', 'lateral_raise', 'face_pull', 'barbell_curl', 'skull_crusher'],
+};
+const MASS16_REV = 2;
+
+/**
+ * Bring a saved program plan up to the current revision without losing the user's changes:
+ * slots keep their swaps and set edits, they only move to their new position.
+ */
+export function migratePlan(plan: Plan): Plan | null {
+  if (plan.program !== 'mass16' || (plan.rev ?? 1) >= MASS16_REV) return null;
+  const days = plan.days.map((d) => {
+    const oldIds = MASS16_V1[d.key], items = MASS16[d.key];
+    if (!oldIds || !items) return d;
+    const newIds = items.map((it) => it[0]);
+    const placed: Slot[] = new Array(newIds.length);
+    const extra: Slot[] = [];
+    d.slots.forEach((slot, i) => {
+      const k = i < oldIds.length ? newIds.indexOf(oldIds[i]) : -1;
+      if (k >= 0 && !placed[k]) placed[k] = { ...slot, pair: items[k][2] };
+      else extra.push({ ...slot, pair: false });
+    });
+    return { ...d, slots: [...placed.filter(Boolean), ...extra] };
+  });
+  return { ...plan, days, rev: MASS16_REV };
+}
 
 export const PROGRAMS = {
   mass16: {
@@ -76,6 +123,7 @@ export function buildProgram(id: ProgramId): Plan {
     createdAt: Date.now(),
     weeks: p.weeks,
     program: id,
+    rev: MASS16_REV,
     days: Object.entries(p.days).map(([key, items]) => ({
       key,
       slots: items.map(([exId, rxKey, pair, note]): Slot => {

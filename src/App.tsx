@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Icon } from './Icons';
 import { translate, useT, type Key } from './i18n';
-import { installProgram, PROGRAMS, type ProgramId } from './lib/programs';
+import { installProgram, migratePlan, PROGRAMS, type ProgramId } from './lib/programs';
 import { handleStravaRedirect } from './integrations/strava';
 import Library from './screens/Library';
 import Onboarding from './screens/Onboarding';
@@ -11,7 +11,7 @@ import SessionSummary from './screens/SessionSummary';
 import SettingsScreen from './screens/Settings';
 import Today from './screens/Today';
 import Workout from './screens/Workout';
-import { getState, useStore } from './store';
+import { getState, setState, useStore } from './store';
 import { Sheet, Toast } from './ui';
 
 const Coach = lazy(() => import('./screens/Coach'));
@@ -58,6 +58,9 @@ export default function App() {
   useEffect(() => {
     const on = () => setTab(readTab());
     window.addEventListener('hashchange', on);
+    const saved = getState().plan;
+    const upgraded = saved && migratePlan(saved);
+    if (upgraded) setState({ plan: upgraded });
     const q = new URLSearchParams(location.search);
     const pid = q.get('program');
     if (pid && pid in PROGRAMS) {

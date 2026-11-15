@@ -1,4 +1,4 @@
-import { EX, EXERCISES } from '../data/exercises';
+import { EX } from '../data/exercises';
 import type { Equip, Exercise, Muscle, Pattern } from '../data/types';
 import type { DayPlan, Plan, Profile, Session, Slot } from '../store';
 import { uid } from '../store';
@@ -61,14 +61,50 @@ export function candidatesFor(pattern: Pattern, equip: Equip[]): Exercise[] {
 }
 
 /** Alternatives for swapping: same pattern first, then anything hitting the same primary muscle. */
-export function alternatives(exId: string, pattern: Pattern, equip: Equip[]): Exercise[] {
-  const main = EX[exId].muscles[0];
-  const seen = new Set<string>([exId]);
-  const out: Exercise[] = [];
-  for (const e of [...candidatesFor(pattern, equip), ...EXERCISES.filter((e) => e.muscles[0] === main && available(e, equip))]) {
-    if (!seen.has(e.id)) { seen.add(e.id); out.push(e); }
-  }
-  return out;
+/*
+ * Swap families: exercises in one family train the same muscle with the same movement, so any of them
+ * can replace another without changing what the session trains. `related` lists close relatives that
+ * hit the same main muscle with a slightly different movement, shown after the family.
+ */
+const FAMILIES: Record<string, { members: string[]; related?: string[] }> = {
+  squat: { members: ['squat', 'goblet_squat', 'leg_press', 'bw_squat'], related: ['lunge'] },
+  lunge: { members: ['bulgarian', 'split_squat'], related: ['squat'] },
+  quadIso: { members: ['leg_extension'], related: ['lunge'] },
+  hinge: { members: ['rdl', 'db_rdl', 'deadlift', 'single_leg_rdl'], related: ['lowBack'] },
+  hamIso: { members: ['leg_curl'], related: ['hinge'] },
+  glute: { members: ['hip_thrust', 'glute_bridge'], related: ['lowBack'] },
+  lowBack: { members: ['back_extension'], related: ['glute', 'hinge'] },
+  calf: { members: ['calf_raise'] },
+  flatPress: { members: ['bench_press', 'db_bench', 'chest_press', 'push_up'], related: ['inclinePress'] },
+  inclinePress: { members: ['incline_db_press'], related: ['flatPress'] },
+  chestFly: { members: ['cable_fly', 'db_fly'] },
+  vPull: { members: ['lat_pulldown', 'pull_up'], related: ['hPull'] },
+  hPull: { members: ['barbell_row', 'db_row', 'cable_row', 'inverted_row'], related: ['vPull'] },
+  vPush: { members: ['ohp', 'db_shoulder_press', 'pike_push_up'] },
+  latDelt: { members: ['lateral_raise'] },
+  rearDelt: { members: ['face_pull'] },
+  curl: { members: ['db_curl', 'hammer_curl', 'barbell_curl', 'cable_curl'] },
+  triceps: { members: ['pushdown', 'overhead_ext', 'skull_crusher', 'bench_dip'] },
+  coreStability: { members: ['bird_dog', 'dead_bug', 'plank'] },
+  coreFlexion: { members: ['crunch', 'leg_raise', 'hanging_leg_raise'], related: ['coreStability'] },
+};
+const FAMILY_OF: Record<string, string> = Object.fromEntries(
+  Object.entries(FAMILIES).flatMap(([f, { members }]) => members.map((id) => [id, f])),
+);
+
+/** Swap choices: the same family first, then close relatives — never an unrelated exercise. */
+export function swapGroups(exId: string, equip: Equip[]) {
+  const fam = FAMILIES[FAMILY_OF[exId]];
+  const pick = (ids: string[]) => ids.filter((id) => id !== exId && EX[id] && available(EX[id], equip)).map((id) => EX[id]);
+  if (!fam) return { same: [], related: [] as Exercise[] };
+  const same = pick(fam.members);
+  const related = pick((fam.related ?? []).flatMap((f) => FAMILIES[f].members)).filter((e) => !same.includes(e));
+  return { same, related };
+}
+
+export function alternatives(exId: string, _pattern: Pattern, equip: Equip[]): Exercise[] {
+  const { same, related } = swapGroups(exId, equip);
+  return [...same, ...related];
 }
 
 function baseSets(ex: Exercise, exp: Profile['experience']) {
