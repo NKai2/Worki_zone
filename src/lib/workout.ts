@@ -1,5 +1,5 @@
 import { getState, setState, uid, type ActiveWorkout, type Session, type SwimEntry } from '../store';
-import { setsFor, suggest, weekInfo } from './plan';
+import { noteFor, repsFor, setsFor, suggest, weekInfo } from './plan';
 
 export function startWorkout() {
   const { plan, pointer, history, active } = getState();
@@ -13,12 +13,15 @@ export function startWorkout() {
     dayIndex: pointer.dayIndex,
     dayKey: day.key,
     exercises: day.slots.map((slot) => {
-      const s = suggest(history, slot, deload);
+      const reps = repsFor(slot, plan, pointer.week);
+      const s = suggest(history, { exId: slot.exId, reps }, deload);
       const n = setsFor(slot, plan, pointer.week);
       return {
         exId: slot.exId,
-        reps: slot.reps,
+        reps,
         rest: slot.rest,
+        note: noteFor(slot, plan, pointer.week),
+        pair: slot.pair,
         sets: Array.from({ length: n }, () => ({ w: s.w, r: s.r, done: false })),
       };
     }),

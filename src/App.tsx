@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Icon } from './Icons';
-import { useT, type Key } from './i18n';
+import { translate, useT, type Key } from './i18n';
+import { installProgram, PROGRAMS, type ProgramId } from './lib/programs';
 import { handleStravaRedirect } from './integrations/strava';
 import Library from './screens/Library';
 import Onboarding from './screens/Onboarding';
@@ -10,7 +11,7 @@ import SessionSummary from './screens/SessionSummary';
 import SettingsScreen from './screens/Settings';
 import Today from './screens/Today';
 import Workout from './screens/Workout';
-import { useStore } from './store';
+import { getState, useStore } from './store';
 import { Sheet, Toast } from './ui';
 
 const Coach = lazy(() => import('./screens/Coach'));
@@ -57,6 +58,16 @@ export default function App() {
   useEffect(() => {
     const on = () => setTab(readTab());
     window.addEventListener('hashchange', on);
+    const q = new URLSearchParams(location.search);
+    const pid = q.get('program');
+    if (pid && pid in PROGRAMS) {
+      history.replaceState(null, '', location.pathname + location.hash);
+      const cur = getState().plan;
+      const tr = (k: Key) => translate(getState().settings.lang, k);
+      if (cur?.program !== pid && (!cur || confirm(tr('programConfirm')))) {
+        installProgram(pid as ProgramId).then(() => { setEditing(false); setToast(tr('programLoaded')); });
+      }
+    }
     handleStravaRedirect()
       .then((ok) => { if (ok) { location.hash = 'settings'; setToast('Strava ✓'); } })
       .catch((e: Error) => setToast(e.message));

@@ -101,18 +101,37 @@ export function generatePlan(profile: Profile): Plan {
 }
 
 /** Week-by-week periodisation: volume ramps up, RIR goes down, the last week is a deload. */
+/** Week-by-week periodisation: volume ramps up, RIR goes down, the last week is a deload.
+ *  Programs run in 4-week blocks with every 4th week a deload. */
 export function weekInfo(plan: Plan, week: number) {
+  if (plan.program) {
+    const block = Math.min(3, Math.floor((week - 1) / 4));
+    const deload = week % 4 === 0;
+    return { deload, rir: deload ? 4 : [3, 2, 1, 1][block], extraSets: 0, block };
+  }
   const deload = week >= plan.weeks;
   const rir = deload ? 4 : [3, 2, 2, 1][Math.min(week - 1, 3)];
   const extraSets = deload ? 0 : week >= 3 ? 1 : 0;
-  return { deload, rir, extraSets };
+  return { deload, rir, extraSets, block: 0 };
 }
 
 export function setsFor(slot: Slot, plan: Plan, week: number) {
-  const { deload, extraSets } = weekInfo(plan, week);
+  const { deload, extraSets, block } = weekInfo(plan, week);
+  const base = slot.blocks ? slot.blocks[block][0] : slot.sets;
+  if (deload) return Math.max(1, Math.ceil(base / 2));
+  if (slot.blocks) return base;
   const ex = EX[slot.exId];
-  if (deload) return Math.max(1, Math.ceil(slot.sets / 2));
-  return slot.sets + (ex.kind === 'compound' || slot.sets < 3 ? extraSets : 0);
+  return base + (ex.kind === 'compound' || base < 3 ? extraSets : 0);
+}
+
+export function repsFor(slot: Slot, plan: Plan, week: number): [number, number] {
+  if (!slot.blocks) return slot.reps;
+  const b = slot.blocks[weekInfo(plan, week).block];
+  return [b[1], b[2]];
+}
+
+export function noteFor(slot: Slot, plan: Plan, week: number) {
+  return slot.notes?.[weekInfo(plan, week).block] ?? null;
 }
 
 export function increment(ex: Exercise) {

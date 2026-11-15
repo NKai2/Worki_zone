@@ -4,6 +4,7 @@ import { EX } from '../data/exercises';
 import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
 import { generatePlan, setsFor, weekInfo } from '../lib/plan';
+import { installProgram, type ProgramId } from '../lib/programs';
 import { logBodyweight, logSwim, sessionSets, sessionVolume, startWorkout, swimDistance } from '../lib/workout';
 import { getState, setState, useStore } from '../store';
 import { Cell, Group, haptic, LangButton, NavBar, Rings, Sheet, Stepper, SwimForm, Thumb } from '../ui';
@@ -38,7 +39,8 @@ export default function Today({ go }: { go: (tab: Tab) => void }) {
 
   const newMeso = () => {
     const { profile } = getState();
-    if (profile) setState({ plan: generatePlan(profile), pointer: { week: 1, dayIndex: 0 } });
+    if (plan.program) installProgram(plan.program as ProgramId);
+    else if (profile) setState({ plan: generatePlan(profile), pointer: { week: 1, dayIndex: 0 } });
   };
 
   const start = () => { haptic(15); startWorkout(); window.scrollTo(0, 0); };
@@ -83,12 +85,12 @@ export default function Today({ go }: { go: (tab: Tab) => void }) {
       ) : (
         <div className="hero-card">
           <div className="row between">
-            <span className={`tag ${info.deload ? 'cyan' : 'tint'}`}>{info.deload ? t('deload') : `${t('week')} ${pointer.week} ${t('of')} ${plan.weeks}`}</span>
+            <span className={`tag ${info.deload ? 'cyan' : 'tint'}`}>{info.deload ? `${t('deload')} · ${t('week')} ${pointer.week}` : `${plan.program ? `${t('block')} ${info.block + 1} · ` : ''}${t('week')} ${pointer.week} ${t('of')} ${plan.weeks}`}</span>
             <span className="footnote secondary">{t('targetRir')} {info.rir}</span>
           </div>
           <div className="week-track mt12">
             {Array.from({ length: plan.weeks }, (_, i) => (
-              <i key={i} className={`${i + 1 <= pointer.week ? 'on' : ''} ${i + 1 === plan.weeks ? 'deload' : ''}`} />
+              <i key={i} className={`${i + 1 <= pointer.week ? 'on' : ''} ${weekInfo(plan, i + 1).deload ? 'deload' : ''}`} />
             ))}
           </div>
           <div className="title3 mt16" style={{ fontSize: 24, fontWeight: 700 }}>{t(`day_${day.key}` as Key)}</div>

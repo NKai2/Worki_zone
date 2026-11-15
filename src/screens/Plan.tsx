@@ -3,7 +3,8 @@ import { EX, EXERCISES } from '../data/exercises';
 import type { Muscle } from '../data/types';
 import { Icon } from '../Icons';
 import { MUSCLES, useT, type Key } from '../i18n';
-import { alternatives, available, makeSlot, patternOf, setsFor, weekInfo, weeklySetsPerMuscle } from '../lib/plan';
+import { alternatives, available, makeSlot, noteFor, patternOf, repsFor, setsFor, weekInfo, weeklySetsPerMuscle } from '../lib/plan';
+import { installProgram, PROGRAMS, programLink, type ProgramId } from '../lib/programs';
 import { getState, setState, useStore, type Slot } from '../store';
 import { Bars, Cell, Demo, ExerciseDetail, Group, LangButton, NavBar, Segmented, Sheet, Stepper, Thumb } from '../ui';
 
@@ -55,8 +56,8 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
   return (
     <div>
       <NavBar
-        title={t('planTitle')}
-        sub={`${t('week')} ${week} ${t('of')} ${plan.weeks} · ${plan.days.length} ${t('daysPerWeek')} · ${t('targetRir')} ${info.rir}`}
+        title={plan.program ? tx(PROGRAMS[plan.program as ProgramId].name) : t('planTitle')}
+        sub={`${plan.program ? `${t('block')} ${info.block + 1} · ` : ''}${t('week')} ${week} ${t('of')} ${plan.weeks} · ${info.deload ? t('deload') : `${t('targetRir')} ${info.rir}`}`}
         actions={<LangButton />}
       />
 
@@ -68,11 +69,14 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
       >
         {d.slots.map((s, si) => {
           const ex = EX[s.exId];
+          const r = repsFor(s, plan, week);
+          const note = noteFor(s, plan, week);
+          const paired = s.pair || d.slots[si - 1]?.pair;
           return (
             <Cell key={`${s.exId}-${si}`} onClick={() => setEdit(si)} chevron inset={80}
               leading={<Thumb exId={s.exId} />}
-              title={tx(ex.name)}
-              sub={<span className="num">{setsFor(s, plan, week)} × {s.reps[0]}–{s.reps[1]} · {s.rest}{t('sec')}</span>} />
+              title={<>{tx(ex.name)}{paired && <span className="tag tint" style={{ marginInlineStart: 6 }}>{t('superset')}</span>}</>}
+              sub={<><span className="num">{setsFor(s, plan, week)} × {r[0] === r[1] ? r[0] : `${r[0]}–${r[1]}`}{s.exId === 'plank' ? ` ${t('sec')}` : ''} · {t('rest')} {s.rest}{t('sec')}</span>{note && <> · {tx(note)}</>}</>} />
           );
         })}
         <Cell title={`+ ${t('addExercise')}`} onClick={() => setPicker({ day, slot: -1 })} />
@@ -84,8 +88,23 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
         </div>
       </Group>
 
+      <Group header={t('programsTitle')} footer={t('programsFooter')}>
+        {(Object.keys(PROGRAMS) as ProgramId[]).map((id) => (
+          <Cell key={id} icon={<Icon.plan on />} iconBg="var(--green)" title={tx(PROGRAMS[id].name)} sub={tx(PROGRAMS[id].sub)}
+            detail={plan.program === id ? t('active') : undefined}
+            onClick={plan.program === id ? undefined : () => { if (confirm(t('programConfirm'))) installProgram(id); }} chevron={plan.program !== id} />
+        ))}
+        {plan.program && (
+          <Cell title={t('copyLink')} onClick={() => { navigator.clipboard?.writeText(programLink(plan.program as ProgramId)); alert(`${t('linkCopied')}\n${programLink(plan.program as ProgramId)}`); }} />
+        )}
+      </Group>
+
       <Group style={{ marginTop: 24 }}>
-        <Cell title={t('rebuild')} onClick={() => { if (confirm(t('rebuildConfirm'))) onRebuild(); }} />
+        <Cell title={plan.program ? t('restartProgram') : t('rebuild')} onClick={() => {
+          if (!confirm(t('rebuildConfirm'))) return;
+          if (plan.program) installProgram(plan.program as ProgramId); else onRebuild();
+        }} />
+        {plan.program && <Cell title={t('rebuild')} onClick={() => { if (confirm(t('rebuildConfirm'))) onRebuild(); }} />}
       </Group>
 
       {slot && edit !== null && !picker && (
@@ -95,7 +114,13 @@ export default function PlanScreen({ onRebuild }: { onRebuild: () => void }) {
           </div>
           <Group header={t('baseSets')} footer={t('baseSetsHint')}>
             <div className="cell">
-              <div className="grow"><Stepper value={slot.sets} step={1} label={t('sets')} onChange={(v) => editSlot(day, edit, (x) => ({ ...x, sets: Math.min(8, Math.max(1, Math.round(v))) }))} /></div>
+              <div className="grow"><Stepper value={slot.blocks ? slot.blocks[info.block][0] : slot.sets} step={1} label={t('sets')} onChange={(v) => editSlot(day, edit, (x) => {
+                const n = Math.min(8, Math.max(1, Math.round(v)));
+                if (!x.blocks) return { ...x, sets: n };
+                // Program slots: shift every block by the same amount
+                const delta = n - x.blocks[info.block][0];
+                return { ...x, blocks: x.blocks.map(([st, a, b]) => [Math.min(8, Math.max(1, st + delta)), a, b] as [number, number, number]) };
+              })} /></div>
             </div>
           </Group>
           <Group style={{ marginTop: 20 }}>

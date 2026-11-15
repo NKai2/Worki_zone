@@ -169,8 +169,9 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
                 <Thumb exId={e.exId} />
               </button>
               <div className="grow">
-                <div className="name">{tx(ex.name)}</div>
-                <div className="footnote secondary num">{e.sets.length} × {e.reps[0]}–{e.reps[1]} {e.exId === 'plank' ? t('sec') : t('reps')} · {t('rest')} {e.rest}{t('sec')}</div>
+                <div className="name">{tx(ex.name)}{(e.pair || w.exercises[ei - 1]?.pair) && <span className="tag tint" style={{ marginInlineStart: 6 }}>{t('superset')}</span>}</div>
+                <div className="footnote secondary num">{e.sets.length} × {e.reps[0] === e.reps[1] ? e.reps[0] : `${e.reps[0]}–${e.reps[1]}`} {e.exId === 'plank' ? t('sec') : t('reps')} · {t('rest')} {e.rest}{t('sec')}</div>
+                {e.note && <div className="footnote" style={{ color: 'var(--tint)', fontWeight: 600 }}>{tx(e.note)}</div>}
               </div>
               <button className="icon-btn" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}><Icon.info /></button>
             </div>

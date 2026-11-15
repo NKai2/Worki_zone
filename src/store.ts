@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Equip, Lang, Pattern } from './data/types';
+import type { Equip, Lang, Pattern, Text } from './data/types';
 
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
 
@@ -16,6 +16,12 @@ export interface Slot {
   sets: number;
   reps: [number, number];
   rest: number;
+  /** Program slots: [sets, minReps, maxReps] for each 4-week block */
+  blocks?: [number, number, number][];
+  /** Program slots: extra instruction per block (e.g. "per side, hold 6 s") */
+  notes?: (Text | null)[];
+  /** Superset with the next slot */
+  pair?: boolean;
 }
 
 export interface DayPlan {
@@ -28,10 +34,12 @@ export interface Plan {
   createdAt: number;
   weeks: number;
   days: DayPlan[];
+  /** Set when the plan comes from a built-in program (see lib/programs.ts) */
+  program?: string;
 }
 
 export interface LoggedSet { w: number; r: number; done: boolean }
-export interface LoggedExercise { exId: string; sets: LoggedSet[]; reps: [number, number]; rest: number }
+export interface LoggedExercise { exId: string; sets: LoggedSet[]; reps: [number, number]; rest: number; note?: Text | null; pair?: boolean }
 
 export type Stroke = 'freestyle' | 'breast' | 'back' | 'fly' | 'mixed';
 export interface SwimEntry { distance: number; duration: number; stroke: Stroke; pool: 25 | 50 | 0 }

@@ -3,6 +3,7 @@ import type { Equip } from '../data/types';
 import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
 import { generatePlan } from '../lib/plan';
+import { installProgram, PROGRAMS } from '../lib/programs';
 import { getState, setState, useStore, type Experience, type Profile } from '../store';
 import { Cell, Group, haptic, LangButton, Segmented, Stepper } from '../ui';
 
@@ -15,7 +16,7 @@ const PRESETS: { key: Key; equip: Equip[] }[] = [
 const SPLIT: Record<number, Key> = { 2: 'splitFb', 3: 'splitFb', 4: 'splitUl', 5: 'splitUlppl', 6: 'splitPpl' };
 
 export default function Onboarding({ onDone, onCancel }: { onDone: () => void; onCancel?: () => void }) {
-  const { t } = useT();
+  const { t, tx } = useT();
   const existing = useStore((s) => s.profile);
   const lastBw = useStore((s) => s.bodyweight[s.bodyweight.length - 1]?.kg);
   const [p, setP] = useState<Profile>(existing ?? { experience: 'intermediate', days: 4, minutes: 60, equipment: PRESETS[0].equip });
@@ -68,6 +69,10 @@ export default function Onboarding({ onDone, onCancel }: { onDone: () => void; o
               <Cell icon={<Icon.plan on />} iconBg="var(--tint)" title={t('obFeat1')} />
               <Cell icon={<Icon.progress on />} iconBg="var(--green)" title={t('obFeat2')} />
               <Cell icon={<Icon.swim />} iconBg="var(--cyan)" title={t('obFeat3')} />
+            </Group>
+            <Group header={t('orReady')} style={{ textAlign: 'start' }}>
+              <Cell icon={<Icon.dumbbell />} iconBg="var(--orange)" title={tx(PROGRAMS.mass16.name)} sub={tx(PROGRAMS.mass16.sub)} chevron
+                onClick={() => installProgram('mass16').then(onDone)} />
             </Group>
           </div>
         )}
