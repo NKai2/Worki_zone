@@ -3,10 +3,10 @@ import { EX } from '../data/exercises';
 import { Icon } from '../Icons';
 import { useT, type Key } from '../i18n';
 import { uploadToStrava } from '../integrations/strava';
-import { e1rm, increment, lastPerformance, suggest, weekInfo } from '../lib/plan';
+import { alternatives, e1rm, increment, lastPerformance, patternOf, suggest, weekInfo } from '../lib/plan';
 import { discardWorkout, finishWorkout, fmtPace, pace, updateActive, updateSession } from '../lib/workout';
-import { getState, useStore, type LoggedSet } from '../store';
-import { Cell, ExerciseDetail, Group, haptic, NavBar, Sheet, Stepper, SwimForm, Thumb } from '../ui';
+import { getState, setState, useStore, type LoggedSet } from '../store';
+import { Cell, ExerciseDetail, Group, haptic, Sheet, Switch, SwimForm, Thumb } from '../ui';
 
 function beep() {
   try {
@@ -75,60 +75,131 @@ function Elapsed({ start }: { start: number }) {
   return <span dir="ltr" className="num">{h ? `${h}:` : ''}{String(Math.floor((s % 3600) / 60)).padStart(h ? 2 : 1, '0')}:{String(s % 60).padStart(2, '0')}</span>;
 }
 
+type Swap = { ei: number } | null;
+
 export default function Workout({ onFinish }: { onFinish: (id: string, prs: string[]) => void }) {
   const { t, tx } = useT();
   const w = useStore((s) => s.active)!;
   const plan = useStore((s) => s.plan)!;
+  const profile = useStore((s) => s.profile);
   const history = useStore((s) => s.history);
   const [rest, setRest] = useState<{ until: number; total: number } | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
-  const [swimOpen, setSwimOpen] = useState(false);
+  const [sheet, setSheet] = useState<'list' | 'swim' | null>(null);
+  const [swap, setSwap] = useState<Swap>(null);
+  const [swapPlanToo, setSwapPlanToo] = useState(true);
+  const [extraWeight, setExtraWeight] = useState(false);
   const { deload, rir } = weekInfo(plan, w.week);
 
-  const setField = (ei: number, si: number, patch: Partial<LoggedSet>) =>
-    updateActive((a) => ({
-      ...a,
-      exercises: a.exercises.map((e, i) => (i !== ei ? e : { ...e, sets: e.sets.map((s, j) => (j === si ? { ...s, ...patch } : s)) })),
-    }));
+  const cur = Math.min(w.cur ?? 0, w.exercises.length - 1);
+  const e = w.exercises[cur];
+  const ex = EX[e.exId];
+  const si = e.sets.findIndex((x) => !x.done);
+  const exDone = si === -1;
+  const set = exDone ? null : e.sets[si];
+  const bw = ex.load === 'bodyweight';
+  const secs = e.exId === 'plank';
+  const last = lastPerformance(history, e.exId);
+  const sug = suggest(history, e, deload);
+  const doneSets = w.exercises.reduce((n, x) => n + x.sets.filter((s) => s.done).length, 0);
+  const allDone = w.exercises.every((x) => x.sets.every((s) => s.done));
+  const pairedNext = e.pair && w.exercises[cur + 1];
+  const pairedPrev = w.exercises[cur - 1]?.pair ? w.exercises[cur - 1] : null;
 
-  const toggleDone = (ei: number, si: number) => {
-    const ex = w.exercises[ei];
-    const set = ex.sets[si];
-    const done = !set.done;
-    // Carry the weight forward to the following empty sets
-    updateActive((a) => ({
-      ...a,
-      exercises: a.exercises.map((e, i) => (i !== ei ? e : {
-        ...e,
-        sets: e.sets.map((s, j) => (j === si ? { ...s, done } : j > si && !s.done && done && s.w === 0 ? { ...s, w: set.w } : s)),
-      })),
-    }));
-    if (done) setRest({ until: Date.now() + ex.rest * 1000, total: ex.rest });
+  const go = (i: number) => { updateActive((a) => ({ ...a, cur: Math.max(0, Math.min(a.exercises.length - 1, i)) })); setExtraWeight(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const nextOpen = (from: number) => {
+    for (let k = 1; k <= w.exercises.length; k++) {
+      const i = (from + k) % w.exercises.length;
+      if (w.exercises[i].sets.some((s) => !s.done)) return i;
+    }
+    return from;
   };
 
-  const addSet = (ei: number) =>
+  const patchSet = (patch: Partial<LoggedSet>) =>
     updateActive((a) => ({
       ...a,
-      exercises: a.exercises.map((e, i) => {
-        if (i !== ei) return e;
-        const last = e.sets[e.sets.length - 1] ?? { w: 0, r: e.reps[0] };
-        return { ...e, sets: [...e.sets, { w: last.w, r: last.r, done: false }] };
+      exercises: a.exercises.map((x, i) => (i !== cur ? x : { ...x, sets: x.sets.map((s, j) => (j === si ? { ...s, ...patch } : s)) })),
+    }));
+
+  const completeSet = () => {
+    if (!set) return;
+    haptic(18);
+    // Mark done and carry the weight/reps to the remaining sets of this exercise
+    updateActive((a) => ({
+      ...a,
+      exercises: a.exercises.map((x, i) => (i !== cur ? x : {
+        ...x,
+        sets: x.sets.map((s, j) => (j === si ? { ...s, done: true } : j > si && !s.done ? { ...s, w: set.w, r: s.r || set.r } : s)),
+      })),
+    }));
+    const remaining = e.sets.filter((s) => !s.done).length - 1;
+    if (pairedNext && pairedNext.sets.some((s) => !s.done)) { go(cur + 1); return; } // superset: straight to the partner
+    setRest({ until: Date.now() + e.rest * 1000, total: e.rest });
+    if (pairedPrev && pairedPrev.sets.some((s) => !s.done)) go(cur - 1);
+    else if (remaining <= 0) go(nextOpen(cur));
+  };
+
+  const undoSet = (j: number) =>
+    updateActive((a) => ({
+      ...a,
+      exercises: a.exercises.map((x, i) => (i !== cur ? x : { ...x, sets: x.sets.map((s, k) => (k === j ? { ...s, done: false } : s)) })),
+    }));
+
+  const addSet = () =>
+    updateActive((a) => ({
+      ...a,
+      exercises: a.exercises.map((x, i) => {
+        if (i !== cur) return x;
+        const lastSet = x.sets[x.sets.length - 1] ?? { w: 0, r: x.reps[0] };
+        return { ...x, sets: [...x.sets, { w: lastSet.w, r: lastSet.r, done: false }] };
       }),
     }));
 
-  const removeSet = (ei: number) =>
-    updateActive((a) => ({ ...a, exercises: a.exercises.map((e, i) => (i === ei && e.sets.length > 1 ? { ...e, sets: e.sets.slice(0, -1) } : e)) }));
+  const skip = () => {
+    // Drop the sets that were not done; keep any that were
+    updateActive((a) => ({
+      ...a,
+      exercises: a.exercises.map((x, i) => (i !== cur ? x : { ...x, sets: x.sets.filter((s) => s.done).length ? x.sets.filter((s) => s.done) : x.sets.map((s) => ({ ...s, done: false })), skipped: !x.sets.some((s) => s.done) })),
+    }));
+    go(nextOpen(cur));
+  };
+
+  const doSwap = (newId: string) => {
+    if (!swap) return;
+    const old = w.exercises[swap.ei];
+    const nex = EX[newId];
+    const s2 = suggest(history, { exId: newId, reps: old.reps }, deload);
+    const fresh = (n: number) => Array.from({ length: n }, () => ({ w: s2.w, r: s2.r, done: false }));
+    const done = old.sets.filter((s) => s.done);
+    const open = old.sets.length - done.length;
+    updateActive((a) => {
+      const list = [...a.exercises];
+      const repl = { ...old, exId: newId, rest: old.rest || nex.rest, note: null, sets: fresh(Math.max(1, open)) };
+      if (done.length) list.splice(swap.ei, 1, { ...old, sets: done, pair: false }, repl); // keep what was done, continue with the new exercise
+      else list.splice(swap.ei, 1, repl);
+      return { ...a, exercises: list, cur: done.length ? swap.ei + 1 : swap.ei };
+    });
+    if (swapPlanToo) {
+      const p = getState().plan!;
+      const days = p.days.map((d, di) => (di !== w.dayIndex ? d : {
+        ...d, slots: d.slots.map((sl) => (sl.exId === old.exId ? { ...sl, exId: newId, pattern: patternOf(newId) } : sl)),
+      }));
+      setState({ plan: { ...p, days } });
+    }
+    setSwap(null);
+    haptic(10);
+  };
 
   const finish = async () => {
     const before = getState().history;
     const bestBefore = (id: string) =>
-      before.flatMap((h) => h.exercises.filter((e) => e.exId === id).flatMap((e) => e.sets)).reduce((b, s) => Math.max(b, e1rm(s.w, s.r)), 0);
+      before.flatMap((h) => h.exercises.filter((x) => x.exId === id).flatMap((x) => x.sets)).reduce((b, s) => Math.max(b, e1rm(s.w, s.r)), 0);
     const session = finishWorkout();
     if (!session) return;
     const prs = session.exercises
-      .filter((e) => before.some((h) => h.exercises.some((x) => x.exId === e.exId)))
-      .filter((e) => Math.max(...e.sets.map((s) => e1rm(s.w, s.r))) > bestBefore(e.exId))
-      .map((e) => e.exId);
+      .filter((x) => before.some((h) => h.exercises.some((y) => y.exId === x.exId)))
+      .filter((x) => Math.max(...x.sets.map((s) => e1rm(s.w, s.r))) > bestBefore(x.exId))
+      .map((x) => x.exId);
     onFinish(session.id, prs);
     const { settings } = getState();
     if (settings.autoStrava && settings.strava) {
@@ -138,94 +209,154 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
     }
   };
 
-  const doneSets = w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
-  const allSets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
+  const fmt = (x: { w: number; r: number }) => (x.w ? `${x.w} × ${x.r}` : `${x.r}${secs ? ` ${t('sec')}` : ''}`);
+  const hint = sug.kind === 'up' ? `${t('suggestUpShort')} ${sug.w} ${t('kg')}` : last ? `${t('lastTime')}: ${fmt(last.sets[Math.min(si < 0 ? 0 : si, last.sets.length - 1)])}` : bw ? null : t('suggestFirstShort');
+  const swapOptions = swap ? alternatives(w.exercises[swap.ei].exId, patternOf(w.exercises[swap.ei].exId), profile?.equipment ?? ['barbell', 'dumbbell', 'machine', 'cable', 'bench', 'pullup']) : [];
 
   return (
-    <div style={{ paddingBottom: rest ? 96 : 0 }}>
-      <NavBar
-        title={t(`day_${w.dayKey}` as Key)}
-        sub={<span>{t('week')} {w.week} · {t('targetRir')} {rir} · <Elapsed start={w.start} /></span>}
-        leading={<button className="nav-text-btn danger" onClick={() => { if (confirm(t('discardConfirm'))) discardWorkout(); }}>{t('cancel')}</button>}
-        actions={<button className="btn small filled" disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>{t('finishShort')}</button>}
-      />
-      <div className="week-track" aria-label={`${doneSets}/${allSets}`}>
-        <i className="on" style={{ flex: 'none', width: `${(doneSets / Math.max(1, allSets)) * 100}%`, background: 'var(--green)', transition: 'width .4s var(--ease)' }} />
-        <i style={{ flex: 1 }} />
+    <div className="wk" style={{ paddingBottom: rest ? 100 : 24 }}>
+      <div className="wk-top">
+        <button className="nav-text-btn danger" onClick={() => { if (confirm(t('discardConfirm'))) discardWorkout(); }}>{t('cancel')}</button>
+        <button className="wk-title" onClick={() => setSheet('list')}>
+          <b>{t('exerciseOf').replace('{a}', String(cur + 1)).replace('{b}', String(w.exercises.length))}</b>
+          <span className="secondary"><Elapsed start={w.start} /> · {t('allExercises')} ▾</span>
+        </button>
+        <button className="btn small filled" disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>{t('finishShort')}</button>
+      </div>
+
+      <div className="wk-progress">
+        {w.exercises.map((x, i) => {
+          const d = x.sets.filter((s) => s.done).length;
+          return <button key={i} aria-label={tx(EX[x.exId].name)} onClick={() => go(i)}
+            className={`${i === cur ? 'cur' : ''} ${d === x.sets.length ? 'done' : d ? 'part' : ''}`} />;
+        })}
       </div>
       {deload && <div className="hint">{t('deloadWeek')}</div>}
 
-      {w.exercises.map((e, ei) => {
-        const ex = EX[e.exId];
-        const last = lastPerformance(history, e.exId);
-        const s = suggest(history, e, deload);
-        const hint: Key = s.kind === 'up' ? 'suggestUp' : s.kind === 'reps' ? 'suggestReps' : s.kind === 'deload' ? 'suggestDeload' : 'suggestFirst';
-        const bwEx = ex.load === 'bodyweight';
-        const complete = e.sets.every((x) => x.done);
-        return (
-          <section key={ei} className={`ex-card ${complete ? 'complete' : ''}`}>
-            <div className="ex-head">
-              <button className="press" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}>
-                <Thumb exId={e.exId} />
-              </button>
-              <div className="grow">
-                <div className="name">{tx(ex.name)}{(e.pair || w.exercises[ei - 1]?.pair) && <span className="tag tint" style={{ marginInlineStart: 6 }}>{t('superset')}</span>}</div>
-                <div className="footnote secondary num">{e.sets.length} × {e.reps[0] === e.reps[1] ? e.reps[0] : `${e.reps[0]}–${e.reps[1]}`} {e.exId === 'plank' ? t('sec') : t('reps')} · {t('rest')} {e.rest}{t('sec')}</div>
-                {e.note && <div className="footnote" style={{ color: 'var(--tint)', fontWeight: 600 }}>{tx(e.note)}</div>}
-              </div>
-              <button className="icon-btn" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}><Icon.info /></button>
-            </div>
-            <div className={`hint ${s.kind === 'up' ? 'up' : ''}`}>{t(hint)}</div>
-            <div className="set-grid">
-              <div className="hd">{t('set')}</div>
-              <div className="hd">{bwEx ? `+${t('kg')}` : t('kg')}</div>
-              <div className="hd">{e.exId === 'plank' ? t('sec') : t('reps')}</div>
-              <div />
-              {e.sets.map((set, si) => {
-                const p = last?.sets[si];
-                return (
-                  <div key={si} className={set.done ? 'set-row-done' : ''} style={{ display: 'contents' }}>
-                    <div className="set-num">{si + 1}</div>
-                    <Stepper value={set.w} step={increment(ex) || 1} decimal label={t('kg')} placeholder={bwEx ? t('bw') : '0'}
-                      onChange={(v) => setField(ei, si, { w: v })} />
-                    <Stepper value={set.r} step={e.exId === 'plank' ? 5 : 1} label={t('reps')} onChange={(r) => setField(ei, si, { r: Math.round(r) })} />
-                    <button className={`check ${set.done ? 'on' : ''}`} onClick={() => { haptic(set.done ? 5 : 15); toggleDone(ei, si); }} aria-pressed={set.done} aria-label={`${t('set')} ${si + 1}`}><Icon.check /></button>
-                    {p && <div />}
-                    {p && <div className="set-prev" dir="ltr">{t('previous')}: {p.w ? `${p.w} × ${p.r}` : p.r}</div>}
-                    {p && <div />}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="ex-foot">
-              <button className="btn small tinted grow" onClick={() => { haptic(); addSet(ei); }}><Icon.plus /> {t('addSetShort')}</button>
-              <button className="btn small gray" onClick={() => removeSet(ei)} aria-label={t('remove')}>−</button>
-            </div>
-          </section>
-        );
-      })}
+      <section className="wk-hero">
+        <button className="wk-img press" onClick={() => setDetail(e.exId)} aria-label={t('howTo')}>
+          <Thumb exId={e.exId} lg />
+          <span className="wk-play"><Icon.play /></span>
+        </button>
+        <div className="grow">
+          {(e.pair || pairedPrev) && <span className="tag tint">{t('superset')}</span>}
+          <h1 className="wk-name">{tx(ex.name)}</h1>
+          <div className="subhead secondary num">
+            {exDone ? t('exerciseDone') : <>{t('set')} {si + 1} {t('of')} {e.sets.length} · {e.reps[0] === e.reps[1] ? e.reps[0] : `${e.reps[0]}–${e.reps[1]}`} {secs ? t('sec') : t('reps')}</>}
+            {' · '}RIR {rir}
+          </div>
+          {e.note && <div className="footnote tint" style={{ fontWeight: 600, marginTop: 2 }}>{tx(e.note)}</div>}
+        </div>
+      </section>
 
-      <Group header={t('swim')}>
-        {(w.swims ?? []).map((sw, i) => (
-          <Cell key={i} icon={<Icon.swim />} iconBg="var(--cyan)"
-            title={<span dir="ltr" className="num">{sw.distance} m · {Math.round(sw.duration / 60)} min</span>}
-            sub={<>{t(`st_${sw.stroke}` as Key)} · {t('pace100')} <span dir="ltr">{fmtPace(pace(sw))}</span></>}
-            trailing={<button className="icon-btn" aria-label={t('remove')} onClick={() => updateActive((a) => ({ ...a, swims: (a.swims ?? []).filter((_, j) => j !== i) }))}><Icon.trash /></button>} />
-        ))}
-        <Cell title={t('addSwim')} onClick={() => setSwimOpen(true)} />
-      </Group>
+      {set ? (
+        <section className="wk-panel">
+          {hint && <div className={`wk-hint ${sug.kind === 'up' ? 'up' : ''}`}>{hint}</div>}
+          <div className="wk-inputs">
+            {(!bw || extraWeight || set.w > 0) && (
+              <BigStepper label={bw ? `+${t('kg')}` : t('kg')} value={set.w} step={increment(ex) || 1} decimal onChange={(v) => patchSet({ w: v })} />
+            )}
+            <BigStepper label={secs ? t('seconds') : t('reps')} value={set.r} step={secs ? 5 : 1} onChange={(v) => patchSet({ r: Math.round(v) })} />
+          </div>
+          {bw && !extraWeight && set.w === 0 && <button className="btn plain block" style={{ height: 32 }} onClick={() => setExtraWeight(true)}>+ {t('addWeight')}</button>}
+          <button className="btn green block wk-done" onClick={completeSet}><Icon.check /> {t('doneSet')} {si + 1}</button>
+        </section>
+      ) : allDone ? (
+        <section className="wk-panel center">
+          <div className="title3">🎉 {t('allDone')}</div>
+          <button className="btn filled block mt16" onClick={finish}>{t('finish')}</button>
+        </section>
+      ) : (
+        <section className="wk-panel center">
+          <div className="subhead secondary">{t('exerciseDone')}</div>
+          <button className="btn filled block mt12" onClick={() => go(nextOpen(cur))}>{t('nextExercise')} ›</button>
+        </section>
+      )}
 
-      <button className="btn filled block mt24" disabled={doneSets === 0 && !w.swims?.length} onClick={finish}>
-        {t('finish')}
-      </button>
+      {e.sets.some((s) => s.done) && (
+        <div className="wk-sets">
+          {e.sets.map((s, j) => s.done && (
+            <button key={j} className="wk-set" onClick={() => undoSet(j)} title={t('tapToEdit')}>
+              <span className="n">{j + 1}</span><span className="num" dir="ltr">{fmt(s)}</span><Icon.check />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="wk-actions">
+        <button onClick={() => setSwap({ ei: cur })}><Icon.swap />{t('swapExercise')}</button>
+        <button onClick={addSet}><Icon.plus />{t('addSetShort')}</button>
+        <button onClick={skip}><span style={{ fontSize: 18, lineHeight: 1 }}>»</span>{t('skip')}</button>
+      </div>
+
+      <div className="wk-nav">
+        <button className="btn plain" disabled={cur === 0} onClick={() => go(cur - 1)}>‹ {t('prev')}</button>
+        <button className="btn plain" disabled={cur === w.exercises.length - 1} onClick={() => go(cur + 1)}>{t('next')} ›</button>
+      </div>
 
       {rest && <RestTimer until={rest.until} total={rest.total} onChange={(until) => setRest({ ...rest, until })} onDone={() => setRest(null)} />}
       {detail && <Sheet onClose={() => setDetail(null)}><ExerciseDetail exId={detail} /></Sheet>}
-      {swimOpen && (
-        <Sheet title={t('swim')} onClose={() => setSwimOpen(false)}>
-          <SwimForm onSave={(sw) => { updateActive((a) => ({ ...a, swims: [...(a.swims ?? []), sw] })); setSwimOpen(false); }} />
+
+      {sheet === 'list' && (
+        <Sheet title={t('allExercises')} onClose={() => setSheet(null)}>
+          <Group>
+            {w.exercises.map((x, i) => {
+              const d = x.sets.filter((s) => s.done).length;
+              return (
+                <Cell key={i} leading={<Thumb exId={x.exId} />} inset={80} onClick={() => { go(i); setSheet(null); }}
+                  title={<>{tx(EX[x.exId].name)}{x.pair && <span className="tag tint" style={{ marginInlineStart: 6 }}>{t('superset')}</span>}</>}
+                  sub={`${d}/${x.sets.length} ${t('sets')}`}
+                  trailing={d === x.sets.length ? <span className="check-mark" style={{ color: 'var(--green)' }}><Icon.check /></span> : i === cur ? <span className="tag tint">{t('now')}</span> : undefined} />
+              );
+            })}
+          </Group>
+          <Group header={t('swim')}>
+            {(w.swims ?? []).map((sw, i) => (
+              <Cell key={i} icon={<Icon.swim />} iconBg="var(--cyan)" title={<span dir="ltr" className="num">{sw.distance} m · {Math.round(sw.duration / 60)} min</span>}
+                sub={<>{t(`st_${sw.stroke}` as Key)} · <span dir="ltr">{fmtPace(pace(sw))}</span>/100m</>}
+                trailing={<button className="icon-btn" aria-label={t('remove')} onClick={() => updateActive((a) => ({ ...a, swims: (a.swims ?? []).filter((_, j) => j !== i) }))}><Icon.trash /></button>} />
+            ))}
+            <Cell title={t('addSwim')} onClick={() => setSheet('swim')} />
+          </Group>
         </Sheet>
       )}
+      {sheet === 'swim' && (
+        <Sheet title={t('swim')} onClose={() => setSheet(null)}>
+          <SwimForm onSave={(sw) => { updateActive((a) => ({ ...a, swims: [...(a.swims ?? []), sw] })); setSheet(null); }} />
+        </Sheet>
+      )}
+      {swap && (
+        <Sheet title={t('swapExercise')} onClose={() => setSwap(null)}>
+          <div className="subhead secondary center" style={{ marginBottom: 10 }}>
+            {t('swapInstead')} <b style={{ color: 'var(--label)' }}>{tx(EX[w.exercises[swap.ei].exId].name)}</b>
+          </div>
+          <Group footer={w.exercises[swap.ei].sets.some((s) => s.done) ? t('swapKeepsDone') : undefined}>
+            {swapOptions.map((o) => (
+              <Cell key={o.id} leading={<Thumb exId={o.id} />} inset={80} onClick={() => doSwap(o.id)} chevron
+                title={tx(o.name)} sub={o.equip.length ? o.equip.map((q) => t(`eq_${q}` as Key)).join(' · ') : t('noEquipment')} />
+            ))}
+          </Group>
+          <Group style={{ marginTop: 16 }}>
+            <Cell title={t('swapPlanToo')} trailing={<Switch checked={swapPlanToo} onChange={setSwapPlanToo} label={t('swapPlanToo')} />} />
+          </Group>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+function BigStepper({ label, value, step, onChange, decimal }: { label: string; value: number; step: number; onChange: (v: number) => void; decimal?: boolean }) {
+  const set = (v: number) => { haptic(6); onChange(Math.max(0, Math.round(v * 100) / 100)); };
+  return (
+    <div className="big-stepper">
+      <div className="lbl">{label}</div>
+      <div className="row-in" dir="ltr">
+        <button type="button" onClick={() => set(value - step)} aria-label={`− ${label}`}>−</button>
+        <input inputMode={decimal ? 'decimal' : 'numeric'} value={value || ''} placeholder="0" aria-label={label}
+          onFocus={(ev) => ev.target.select()}
+          onChange={(ev) => onChange(Math.max(0, parseFloat(ev.target.value.replace(',', '.')) || 0))} />
+        <button type="button" onClick={() => set(value + step)} aria-label={`+ ${label}`}>+</button>
+      </div>
     </div>
   );
 }

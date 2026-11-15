@@ -39,7 +39,7 @@ export interface Plan {
 }
 
 export interface LoggedSet { w: number; r: number; done: boolean }
-export interface LoggedExercise { exId: string; sets: LoggedSet[]; reps: [number, number]; rest: number; note?: Text | null; pair?: boolean }
+export interface LoggedExercise { exId: string; sets: LoggedSet[]; reps: [number, number]; rest: number; note?: Text | null; pair?: boolean; skipped?: boolean }
 
 export type Stroke = 'freestyle' | 'breast' | 'back' | 'fly' | 'mixed';
 export interface SwimEntry { distance: number; duration: number; stroke: Stroke; pool: 25 | 50 | 0 }
@@ -52,6 +52,8 @@ export interface ActiveWorkout {
   dayKey: string;
   exercises: LoggedExercise[];
   swims?: SwimEntry[];
+  /** Index of the exercise on screen */
+  cur?: number;
 }
 
 export interface Session {

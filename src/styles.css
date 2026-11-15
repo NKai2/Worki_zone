@@ -426,3 +426,42 @@ ul.warn li + li { box-shadow: inset 0 0.5px 0 var(--sep); }
 .muscle-map canvas { display: block; width: 100% !important; height: 100% !important; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 i.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* ───────────── Focused workout ───────────── */
+.wk-top { position: sticky; top: 0; z-index: 30; margin: 0 -16px; padding: calc(6px + env(safe-area-inset-top)) 16px 8px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; background: var(--material); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+.wk-title { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.wk-title b { font-size: 16px; }
+.wk-title span { font-size: 12px; }
+.wk-progress { display: flex; gap: 3px; margin: 8px 0 4px; }
+.wk-progress button { flex: 1; height: 6px; border-radius: 3px; background: var(--fill); transition: background 0.25s; }
+.wk-progress button.part { background: linear-gradient(90deg, var(--green) 50%, var(--fill) 50%); }
+[dir='rtl'] .wk-progress button.part { background: linear-gradient(270deg, var(--green) 50%, var(--fill) 50%); }
+.wk-progress button.done { background: var(--green); }
+.wk-progress button.cur { background: var(--tint); transform: scaleY(1.5); }
+.wk-hero { display: flex; gap: 14px; align-items: center; margin-top: 14px; }
+.wk-img { position: relative; flex: none; }
+.wk-img .thumb.lg { width: 104px; height: 104px; border-radius: 20px; box-shadow: var(--shadow); }
+.wk-play { position: absolute; bottom: 6px; inset-inline-end: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 0, 0, 0.55); color: #fff; display: grid; place-items: center; }
+.wk-play svg { width: 13px; height: 13px; }
+.wk-name { font-size: 26px; line-height: 1.15; font-weight: 700; margin: 4px 0 4px; letter-spacing: 0.2px; }
+.wk-panel { background: var(--bg-elev); border-radius: 22px; padding: 16px; margin-top: 16px; box-shadow: var(--shadow); }
+.wk-hint { font-size: 14px; color: var(--label-2); text-align: center; margin-bottom: 12px; }
+.wk-hint.up { color: var(--green); font-weight: 600; }
+.wk-inputs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; }
+.big-stepper .lbl { text-align: center; font-size: 13px; font-weight: 600; color: var(--label-2); margin-bottom: 6px; }
+.big-stepper .row-in { display: flex; align-items: center; background: var(--fill-2); border-radius: 18px; height: 76px; padding: 0 6px; }
+.big-stepper button { width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--bg-elev); color: var(--tint); font-size: 26px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); transition: transform 0.15s; }
+.big-stepper button:active { transform: scale(0.9); }
+.big-stepper input { flex: 1; min-width: 0; width: 100%; border: 0; background: transparent; text-align: center; font-size: 38px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; outline: none; }
+.big-stepper input::placeholder { color: var(--label-3); }
+.wk-done { height: 60px; font-size: 19px; border-radius: 18px; margin-top: 14px; }
+.wk-done svg { width: 22px; height: 22px; }
+.wk-sets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.wk-set { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-weight: 600; font-size: 15px; }
+.wk-set .n { width: 24px; height: 24px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 13px; }
+.wk-set svg { width: 15px; height: 15px; }
+.wk-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+.wk-actions button { height: 64px; border-radius: 16px; background: var(--bg-elev); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--label); box-shadow: var(--shadow); }
+.wk-actions button svg { width: 20px; height: 20px; color: var(--tint); }
+.wk-actions button:active { opacity: 0.6; }
+.wk-nav { display: flex; justify-content: space-between; margin-top: 8px; }
