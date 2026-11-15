@@ -290,6 +290,9 @@ const dict = {
   tapToEdit: { he: 'לחיצה לעריכה', en: 'Tap to edit' },
   prev: { he: 'הקודם', en: 'Previous' },
   now: { he: 'עכשיו', en: 'Now' },
+  setsCount: { he: 'סטים', en: 'Sets' },
+  removeSet: { he: 'הסרת סט', en: 'Remove set' },
+  removeWeight: { he: 'הסרה', en: 'Remove' },
   dragRotate: { he: 'גררו כדי לסובב', en: 'Drag to rotate' },
 } satisfies Record<string, Text>;
 

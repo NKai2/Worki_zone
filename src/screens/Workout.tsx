@@ -145,6 +145,26 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
       exercises: a.exercises.map((x, i) => (i !== cur ? x : { ...x, sets: x.sets.map((s, k) => (k === j ? { ...s, done: false } : s)) })),
     }));
 
+  /** Remove the last set that has not been done yet (an exercise keeps at least one set). */
+  const removeSet = () =>
+    updateActive((a) => ({
+      ...a,
+      exercises: a.exercises.map((x, i) => {
+        if (i !== cur || x.sets.length <= 1) return x;
+        const j = x.sets.map((q) => q.done).lastIndexOf(false);
+        return j === -1 ? x : { ...x, sets: x.sets.filter((_, k) => k !== j) };
+      }),
+    }));
+
+  /** Back to bodyweight only: clear the added weight from this and the remaining sets. */
+  const removeWeight = () => {
+    updateActive((a) => ({
+      ...a,
+      exercises: a.exercises.map((x, i) => (i !== cur ? x : { ...x, sets: x.sets.map((q) => (q.done ? q : { ...q, w: 0 })) })),
+    }));
+    setExtraWeight(false);
+  };
+
   const addSet = () =>
     updateActive((a) => ({
       ...a,
@@ -254,7 +274,8 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
           {hint && <div className={`wk-hint ${sug.kind === 'up' ? 'up' : ''}`}>{hint}</div>}
           <div className="wk-inputs">
             {(!bw || extraWeight || set.w > 0) && (
-              <BigStepper label={bw ? `+${t('kg')}` : t('kg')} value={set.w} step={increment(ex) || 1} decimal onChange={(v) => patchSet({ w: v })} />
+              <BigStepper label={bw ? `+${t('kg')}` : t('kg')} value={set.w} step={increment(ex) || 1} decimal onChange={(v) => patchSet({ w: v })}
+                onRemove={bw ? removeWeight : undefined} removeLabel={t('removeWeight')} />
             )}
             <BigStepper label={secs ? t('seconds') : t('reps')} value={set.r} step={secs ? 5 : 1} onChange={(v) => patchSet({ r: Math.round(v) })} />
           </div>
@@ -285,7 +306,14 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
 
       <div className="wk-actions">
         <button onClick={() => setSwap({ ei: cur })}><Icon.swap />{t('swapExercise')}</button>
-        <button onClick={addSet}><Icon.plus />{t('addSetShort')}</button>
+        <div className="wk-count">
+          <span className="lbl">{t('setsCount')}</span>
+          <div className="ctl" dir="ltr">
+            <button onClick={() => { haptic(6); removeSet(); }} disabled={e.sets.length <= 1 || e.sets.every((q) => q.done)} aria-label={t('removeSet')}>−</button>
+            <b className="num">{e.sets.length}</b>
+            <button onClick={() => { haptic(6); addSet(); }} aria-label={t('addSetShort')}>+</button>
+          </div>
+        </div>
         <button onClick={skip}><span style={{ fontSize: 18, lineHeight: 1 }}>»</span>{t('skip')}</button>
       </div>
 
@@ -345,11 +373,14 @@ export default function Workout({ onFinish }: { onFinish: (id: string, prs: stri
   );
 }
 
-function BigStepper({ label, value, step, onChange, decimal }: { label: string; value: number; step: number; onChange: (v: number) => void; decimal?: boolean }) {
+function BigStepper({ label, value, step, onChange, decimal, onRemove, removeLabel }: { label: string; value: number; step: number; onChange: (v: number) => void; decimal?: boolean; onRemove?: () => void; removeLabel?: string }) {
   const set = (v: number) => { haptic(6); onChange(Math.max(0, Math.round(v * 100) / 100)); };
   return (
     <div className="big-stepper">
-      <div className="lbl">{label}</div>
+      <div className="lbl">
+        {label}
+        {onRemove && <button type="button" className="lbl-x" onClick={onRemove} aria-label={removeLabel}>✕ {removeLabel}</button>}
+      </div>
       <div className="row-in" dir="ltr">
         <button type="button" onClick={() => set(value - step)} aria-label={`− ${label}`}>−</button>
         <input inputMode={decimal ? 'decimal' : 'numeric'} value={value || ''} placeholder="0" aria-label={label}

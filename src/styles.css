@@ -465,3 +465,13 @@ i.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .wk-actions button svg { width: 20px; height: 20px; color: var(--tint); }
 .wk-actions button:active { opacity: 0.6; }
 .wk-nav { display: flex; justify-content: space-between; margin-top: 8px; }
+.wk-count { height: 64px; border-radius: 16px; background: var(--bg-elev); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.wk-count .lbl { font-size: 12px; font-weight: 600; color: var(--label-2); }
+.wk-count .ctl { display: flex; align-items: center; gap: 10px; }
+.wk-count .ctl b { font-size: 20px; min-width: 18px; text-align: center; }
+.wk-count .ctl button { width: 30px; height: 30px; border-radius: 50%; background: var(--fill); color: var(--tint); font-size: 20px; line-height: 1; box-shadow: none; flex-direction: row; }
+.wk-count .ctl button:disabled { opacity: 0.3; }
+.big-stepper .lbl { display: flex; justify-content: center; align-items: center; gap: 8px; }
+.lbl-x { font-size: 12px; font-weight: 600; color: var(--red); background: rgba(255, 59, 48, 0.1); border-radius: 999px; padding: 2px 8px; }
+.big-stepper .lbl .lbl-x { width: auto; height: 22px; padding: 0 9px; font-size: 12px; font-weight: 600; border-radius: 999px; color: var(--red); background: rgba(255, 59, 48, 0.12); box-shadow: none; line-height: 22px; }
+.big-stepper .lbl { min-height: 22px; }
